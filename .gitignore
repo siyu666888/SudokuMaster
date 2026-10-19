@@ -1,0 +1,28 @@
+# Gradle / Android 构建产物
+.gradle/
+build/
+app/build/
+local.properties
+
+# 签名密钥（绝不入库）
+keystore/
+keystore.properties
+*.jks
+*.keystore
+
+# IDE
+.idea/
+*.iml
+captures/
+
+# 交付物 APK / AAB（二进制不入库，改用 GitHub Releases 归档）
+release/*.apk
+release/*.aab
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 本地构建/校验临时日志
+build_verify.log
+*.log
