@@ -17,15 +17,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Backspace
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Backspace
+import androidx.compose.material.icons.automirrored.filled.Redo
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Redo
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -137,7 +137,7 @@ fun GameScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = { vm.exitToHome(); onBack() }) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 },
                 actions = {
@@ -211,7 +211,7 @@ fun GameScreen(
                         )
                         PadAction(
                             text = "擦除",
-                            icon = Icons.Filled.Backspace,
+                            icon = Icons.AutoMirrored.Filled.Backspace,
                             modifier = Modifier.weight(1f),
                             onClick = {
                                 vm.erase()
@@ -227,8 +227,8 @@ fun GameScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        ToolButton("撤销", Icons.Filled.Undo, state.canUndo, Modifier.weight(1f)) { vm.undo() }
-                        ToolButton("重做", Icons.Filled.Redo, state.canRedo, Modifier.weight(1f)) { vm.redo() }
+                        ToolButton("撤销", Icons.AutoMirrored.Filled.Undo, state.canUndo, Modifier.weight(1f)) { vm.undo() }
+                        ToolButton("重做", Icons.AutoMirrored.Filled.Redo, state.canRedo, Modifier.weight(1f)) { vm.redo() }
                         ToolButton(
                             text = if (hintsLeft > 0) "提示 $hintsLeft" else "提示 0",
                             icon = Icons.Filled.Lightbulb,

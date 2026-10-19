@@ -11,12 +11,12 @@ Compose 完整重写，数据层用 Room + DataStore 落地。
 
 已在本机用 `gradle assembleRelease` 产出可直接安装的正式版：
 
-- 产物：`release/SudokuMaster-1.9.0-release.apk`（约 2.7 MB，R8 混淆 + 资源压缩 + release 签名）
+- 产物：`release/SudokuMaster-1.9.1-release.apk`（约 2.7 MB，R8 混淆 + 资源压缩 + release 签名）
 - 签名：自签名 release 密钥 `keystore/sudoku-release.jks`（PKCS12，RSA 2048，
   有效期 10000 天，`CN=SudokuMaster`）；`apksigner verify` 通过（v2 scheme）。
   - 密钥口令存放于 `keystore.properties`（已被 `.gitignore` 忽略，**切勿入库/外泄**）。
   - 若日后要上架应用商店，请在 Play Console 用同一密钥或改用 Play App Signing。
-- 包信息：`com.example.sudokumaster` · versionCode 16 · versionName 1.9.0 · minSdk 24 / targetSdk 34。
+- 包信息：`com.example.sudokumaster` · versionCode 17 · versionName 1.9.1 · minSdk 24 / targetSdk 34。
 - 启动图标：使用紫蓝渐变 3D「数独 + 手柄」插图，经中心裁剪后生成
   `mipmap-{m,h,x,xx,xxx}hdpi` 的 `ic_launcher.png` / `ic_launcher_round.png`（源图 1536×1536）。
 - 权限：`VIBRATE`（震动反馈，设置内可关）+ AndroidX 自动注入的
@@ -27,8 +27,8 @@ Compose 完整重写，数据层用 Room + DataStore 落地。
 
 ```bash
 # 需 JDK 17 + Android SDK(platform 34 / build-tools 34.0.0)，并设置 ANDROID_HOME
-gradle assembleRelease        # 产出 app/build/outputs/apk/release/SudokuMaster-1.9.0-release.apk
-apksigner verify --print-certs release/SudokuMaster-1.9.0-release.apk
+gradle assembleRelease        # 产出 app/build/outputs/apk/release/SudokuMaster-1.9.1-release.apk
+apksigner verify --print-certs release/SudokuMaster-1.9.1-release.apk
 ```
 
 ## 技术栈与版本
@@ -190,6 +190,15 @@ ui/fx/
   其所在行/列/宫同伴格笔记中的该候选（幂等、O(n²)，n≤9 无感）。原有的「错误标记/警告」开关保留。
 - **底部图标改为彩色**：首页(绿) / 历史(橙) / 成就(紫) / 设置(蓝) 各用专属彩色；选中态用
   填充图标 + 专属色，未选中用淡彩色描边图标（覆盖 v1.1.0 的纯主题色绑定，按用户最新要求）。
+
+## v1.9.1 更新（D4 弃用 API 清理）
+
+- **方向性图标改为 AutoMirrored 版本**：返回箭头、撤销、重做、退格键统一换成
+  `Icons.AutoMirrored.Filled.*`，在 RTL（从右到左）语言下会自动镜像，符合 Material 规范。
+- **构建零告警**：`clean` + `assembleRelease` 后 Kotlin 编译不再有任何弃用警告
+  （上一版本遗留的 `ArrowBack` / `Undo` / `Redo` / `Backspace` / `Divider` 全部清理）。
+- 纯维护性更新，无功能与界面变化；单元测试 27 个全部通过。
+- 版本：versionCode 17 · versionName 1.9.1。
 
 ## v1.9.0 更新（阶段二：多存档 / 架构解耦 / 性能与无障碍）
 
