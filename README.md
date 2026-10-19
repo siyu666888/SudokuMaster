@@ -22,12 +22,12 @@ Compose 完整重写，数据层用 Room + DataStore 落地。
 
 已在本机用 `gradle assembleRelease` 产出可直接安装的正式版：
 
-- 产物：`release/SudokuMaster-1.9.2-release.apk`（约 2.7 MB，R8 混淆 + 资源压缩 + release 签名）
+- 产物：`release/SudokuMaster-1.9.3-release.apk`（约 2.7 MB，R8 混淆 + 资源压缩 + release 签名）
 - 签名：自签名 release 密钥 `keystore/sudoku-release.jks`（PKCS12，RSA 2048，
   有效期 10000 天，`CN=SudokuMaster`）；`apksigner verify` 通过（v2 scheme）。
   - 密钥口令存放于 `keystore.properties`（已被 `.gitignore` 忽略，**切勿入库/外泄**）。
   - 若日后要上架应用商店，请在 Play Console 用同一密钥或改用 Play App Signing。
-- 包信息：`com.example.sudokumaster` · versionCode 18 · versionName 1.9.2 · minSdk 24 / targetSdk 34。
+- 包信息：`com.example.sudokumaster` · versionCode 19 · versionName 1.9.3 · minSdk 24 / targetSdk 34。
 - 启动图标：使用紫蓝渐变 3D「数独 + 手柄」插图，经中心裁剪后生成
   `mipmap-{m,h,x,xx,xxx}hdpi` 的 `ic_launcher.png` / `ic_launcher_round.png`（源图 1536×1536）。
 - 权限：`VIBRATE`（震动反馈，设置内可关）+ AndroidX 自动注入的
@@ -38,8 +38,8 @@ Compose 完整重写，数据层用 Room + DataStore 落地。
 
 ```bash
 # 需 JDK 17 + Android SDK(platform 34 / build-tools 34.0.0)，并设置 ANDROID_HOME
-gradle assembleRelease        # 产出 app/build/outputs/apk/release/SudokuMaster-1.9.2-release.apk
-apksigner verify --print-certs release/SudokuMaster-1.9.2-release.apk
+gradle assembleRelease        # 产出 app/build/outputs/apk/release/SudokuMaster-1.9.3-release.apk
+apksigner verify --print-certs release/SudokuMaster-1.9.3-release.apk
 ```
 
 ## 技术栈与版本
@@ -204,6 +204,24 @@ ui/fx/
   其所在行/列/宫同伴格笔记中的该候选（幂等、O(n²)，n≤9 无感）。原有的「错误标记/警告」开关保留。
 - **底部图标改为彩色**：首页(绿) / 历史(橙) / 成就(紫) / 设置(蓝) 各用专属彩色；选中态用
   填充图标 + 专属色，未选中用淡彩色描边图标（覆盖 v1.1.0 的纯主题色绑定，按用户最新要求）。
+
+## v1.9.3 更新（修复跨版本升级闪退）
+
+- **修复 v1.9.x 的升级闪退（严重）**：v2→v3 的 Room 迁移 SQL 漏写了标识符引号，
+  而 `values` 是 **SQLite 保留字**，迁移执行到 `CREATE TABLE saved_game_new` 即抛
+  `near "values": syntax error`。Room 在建库阶段跑迁移，异常直接冒泡到启动流程，
+  导致从 v1.8.x（DB v2）升级来的用户**一打开应用就闪退**。
+  全新安装不受影响（Room 生成的建表 SQL 本身带引号），所以只在升级路径上暴露。
+- **修复方式**：迁移 SQL 全部改用反引号包裹标识符，并集中到新增的
+  `data/SavedGameSchema.kt`，让迁移与测试共用同一份语句，杜绝两份 SQL 漂移。
+- **新增回归测试**：`RoomMigrationTest`（4 个用例）通过 `sqlite-jdbc` 在 JVM 上
+  用真实 SQLite 按序执行迁移语句，校验迁移后的表结构（列 / 类型 / NOT NULL / 主键）、
+  单行数据正确落入 `slotId = "9:2"`、空表场景、以及迁移后的表能跑通 DAO 查询。
+  已反向验证：把 bug 注回去 4/4 全部失败。
+- **升级安全性**：Android 的 `SQLiteOpenHelper` 会把 `onUpgrade` 包在事务里，
+  迁移失败即回滚，数据库仍停在 v2。因此已闪退的用户装 v1.9.3 后下次启动会重新
+  执行（现已修正的）迁移，**存档不会丢失**。
+- 版本：versionCode 19 · versionName 1.9.3。单元测试增至 31 个，全部通过。
 
 ## v1.9.2 更新（首页 / 历史卡片扁平化推广）
 

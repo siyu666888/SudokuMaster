@@ -117,14 +117,19 @@ app/src/main/java/com/example/sudokumaster/
    实体↔快照映射放在 `data/repository/SavedGameMapper.kt`。新增领域类型请照此办理。
 2. **时间必须可注入**。计时相关逻辑不要直接调 `System.currentTimeMillis()`，
    通过 `clock: () -> Long` 传入（默认值即系统时钟），这样才可单测。
-3. **Room 迁移必须显式写**。改 entity / 加字段要同步加 `Migration` 并提升 `version`，
-   **禁止使用 `fallbackToDestructiveMigration()`**——宁可崩溃也不要静默清掉用户数据。
-   `saved_game` 已从单槽改为多槽（`slotId = "sizeId:diffId"`），动这张表前先看 `MIGRATION_2_3`。
-4. **release 资源引用必须用编译期 `R.raw.xxx`**，不要用 `getIdentifier()`——release 构建的
+3. **Room 迁移必须显式写，且必须配回归测试**。改 entity / 加字段要同步加 `Migration`
+   并提升 `version`，**禁止使用 `fallbackToDestructiveMigration()`**——宁可崩溃也不要静默清掉用户数据。
+   `saved_game` 已从单槽改为多槽（`slotId = "sizeId:diffId"`），动这张表前先看 `SavedGameSchema`。
+   迁移 SQL 集中在 `SavedGameSchema` 并由 `RoomMigrationTest` 在真实 SQLite 上执行校验，
+   **新增 / 修改迁移时必须同步补测试**。
+4. **手写 SQL 的标识符一律加反引号**。`values` 是 SQLite 保留字，漏引号会直接语法错误。
+   纯 JVM 单测平时不碰 Room，这类错误只有迁移测试能抓到——曾有版本因此导致
+   「升级后一进应用就闪退」，详见 `RoomMigrationTest` 的注释。
+5. **release 资源引用必须用编译期 `R.raw.xxx`**，不要用 `getIdentifier()`——release 构建的
    AAPT2 会缩短资源路径名，运行时按名查找会失败。
-5. **单元测试放 `app/src/test`**，用 JUnit 4（`org.junit.Test` / `org.junit.Assert`）。
-   目前 27 个用例，改动 domain 层时请一并补充或修正。
-6. **版本号**：一批功能性改动对应一个版本号（`versionCode` / `versionName`），
+6. **单元测试放 `app/src/test`**，用 JUnit 4（`org.junit.Test` / `org.junit.Assert`）。
+   目前 31 个用例，改动 domain 层时请一并补充或修正。
+7. **版本号**：一批功能性改动对应一个版本号（`versionCode` / `versionName`），
    README 的更新日志与 `release/` 目录同步维护。纯文档修正不必升版。
 
 ## 提交信息规范
@@ -298,15 +303,22 @@ These came out of real bugs. Please read before changing anything:
    Follow the same pattern for new domain types.
 2. **Time must be injectable.** Do not call `System.currentTimeMillis()` directly in timing
    logic — pass a `clock: () -> Long` (its default is the system clock) so it stays testable.
-3. **Room migrations must be explicit.** Changing an entity or adding a column means adding a
-   `Migration` and bumping `version`. **Never use `fallbackToDestructiveMigration()`** —
-   crashing is preferable to silently wiping user data. `saved_game` moved from a single slot
-   to multi-slot (`slotId = "sizeId:diffId"`); read `MIGRATION_2_3` before touching that table.
-4. **Release resource lookups must use compile-time `R.raw.xxx`**, never `getIdentifier()` —
+3. **Room migrations must be explicit, and must ship with a regression test.** Changing an
+   entity or adding a column means adding a `Migration` and bumping `version`.
+   **Never use `fallbackToDestructiveMigration()`** — crashing is preferable to silently
+   wiping user data. `saved_game` moved from a single slot to multi-slot
+   (`slotId = "sizeId:diffId"`); read `SavedGameSchema` before touching that table.
+   Migration SQL lives in `SavedGameSchema` and is exercised by `RoomMigrationTest` on a real
+   SQLite engine — **when you add or change a migration, add the test too**.
+4. **Quote every identifier in hand-written SQL with backticks.** `values` is a SQLite
+   reserved word; an unquoted reference is a syntax error. Plain JVM tests never touch Room,
+   so only the migration test can catch this class of bug — one release shipped a crash-on-launch
+   upgrade because of exactly this. See the comment in `RoomMigrationTest`.
+5. **Release resource lookups must use compile-time `R.raw.xxx`**, never `getIdentifier()` —
    AAPT2 shortens resource paths in release builds, so name-based lookup fails at runtime.
-5. **Unit tests go in `app/src/test`** using JUnit 4 (`org.junit.Test` / `org.junit.Assert`).
-   There are 27 cases today; please extend or fix them when you change `domain`.
-6. **Versioning**: one functional batch = one version bump (`versionCode` / `versionName`),
+6. **Unit tests go in `app/src/test`** using JUnit 4 (`org.junit.Test` / `org.junit.Assert`).
+   There are 31 cases today; please extend or fix them when you change `domain`.
+7. **Versioning**: one functional batch = one version bump (`versionCode` / `versionName`),
    with the README changelog and `release/` kept in sync. Docs-only fixes do not need a bump.
 
 ## Commit message style

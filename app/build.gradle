@@ -19,8 +19,8 @@ android {
         applicationId "com.example.sudokumaster"
         minSdk 24
         targetSdk 34
-        versionCode 18
-        versionName "1.9.2"
+        versionCode 19
+        versionName "1.9.3"
     }
 
     signingConfigs {
@@ -109,6 +109,8 @@ dependencies {
 
     // 单元测试（domain 纯 Kotlin，无需 Robolectric）
     testImplementation 'junit:junit:4.13.2'
+    // Room 迁移回归测试：在 JVM 上用真实 SQLite 跑迁移 SQL（避免升级闪退漏网）
+    testImplementation 'org.xerial:sqlite-jdbc:3.46.1.3'
 
     debugImplementation 'androidx.compose.ui:ui-tooling'
 }

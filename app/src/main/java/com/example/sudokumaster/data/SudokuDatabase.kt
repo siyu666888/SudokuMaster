@@ -32,40 +32,13 @@ abstract class SudokuDatabase : RoomDatabase() {
         /**
          * v2 -> v3：saved_game 由单槽(id=1)改为多槽(slotId = sizeId:diffId 主键)，并移除 id 列。
          * 旧单条记录(id=1)按自身 sizeId:diffId 映射为新槽位主键。
+         *
+         * 语句集中在 [SavedGameSchema.MIGRATION_2_3_STATEMENTS]（与 RoomMigrationTest 共用），
+         * 所有标识符已加反引号——`values` 是 SQLite 保留字，漏引号会导致升级闪退。
          */
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
-                    """
-                    CREATE TABLE saved_game_new (
-                        slotId TEXT NOT NULL PRIMARY KEY,
-                        sizeId TEXT NOT NULL,
-                        sizeName TEXT NOT NULL,
-                        diffId INTEGER NOT NULL,
-                        diffName TEXT NOT NULL,
-                        values TEXT NOT NULL,
-                        given TEXT NOT NULL,
-                        notes TEXT NOT NULL,
-                        solution TEXT NOT NULL,
-                        selected INTEGER NOT NULL,
-                        hintsUsed INTEGER NOT NULL,
-                        mistakes INTEGER NOT NULL,
-                        elapsedMs INTEGER NOT NULL,
-                        isWon INTEGER NOT NULL,
-                        savedAt INTEGER NOT NULL
-                    )
-                    """.trimIndent()
-                )
-                db.execSQL(
-                    """
-                    INSERT INTO saved_game_new
-                        (slotId, sizeId, sizeName, diffId, diffName, values, given, notes, solution, selected, hintsUsed, mistakes, elapsedMs, isWon, savedAt)
-                    SELECT sizeId || ':' || diffId, sizeId, sizeName, diffId, diffName, values, given, notes, solution, selected, hintsUsed, mistakes, elapsedMs, isWon, savedAt
-                    FROM saved_game
-                    """.trimIndent()
-                )
-                db.execSQL("DROP TABLE saved_game")
-                db.execSQL("ALTER TABLE saved_game_new RENAME TO saved_game")
+                SavedGameSchema.MIGRATION_2_3_STATEMENTS.forEach { db.execSQL(it) }
             }
         }
 
