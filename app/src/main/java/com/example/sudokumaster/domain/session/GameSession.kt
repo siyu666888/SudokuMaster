@@ -8,7 +8,6 @@ import com.example.sudokumaster.domain.model.GameFlags
 import com.example.sudokumaster.domain.model.GameUiState
 import com.example.sudokumaster.domain.model.HintMode
 import com.example.sudokumaster.domain.model.SizeId
-import com.example.sudokumaster.data.entity.SavedGameEntity
 
 /**
  * 一局游戏的可变状态机。对应原 HTML 方案的 `game` 对象与各类交互函数：
@@ -17,6 +16,9 @@ import com.example.sudokumaster.data.entity.SavedGameEntity
  *
  * 所有写操作在内部修改后立即由 [toUiState] 派生不可变快照供 UI 观察。
  * 不依赖 Android 框架，可独立单元测试。
+ *
+ * 计时相关的时间获取统一经由注入的 [clock]（默认 [System.currentTimeMillis]），
+ * 便于单元测试中控制时间流逝（A1 解耦 + 时钟注入）。
  */
 class GameSession private constructor(
     val sizeId: SizeId,
@@ -26,7 +28,8 @@ class GameSession private constructor(
     internal var flags: GameFlags,
     val isReplay: Boolean,                  // 复玩：通关不计入成绩
     givenOverride: BooleanArray? = null,    // 恢复存档时显式传入固定格标记
-    startedAtEpoch: Long = System.currentTimeMillis()
+    private val clock: () -> Long = { System.currentTimeMillis() },
+    startedAtEpoch: Long = clock()
 ) {
     val n = sizeId.n
     private val boxRows = sizeId.boxRows
@@ -69,26 +72,26 @@ class GameSession private constructor(
 
     init {
         paused = false
-        lastResume = System.currentTimeMillis()
+        lastResume = clock()
     }
 
     // ---------------------------------------------------------------- 计时
     fun pause() {
         if (!paused && !isWon) {
-            accumulatedMs += System.currentTimeMillis() - lastResume
+            accumulatedMs += clock() - lastResume
             paused = true
         }
     }
 
     fun resume() {
         if (paused && !isWon) {
-            lastResume = System.currentTimeMillis()
+            lastResume = clock()
             paused = false
         }
     }
 
     fun elapsedNow(): Long =
-        accumulatedMs + if (paused || isWon) 0L else System.currentTimeMillis() - lastResume
+        accumulatedMs + if (paused || isWon) 0L else clock() - lastResume
 
     /** 开局题面（含固定数字，空格为 0）。供成绩记录保存。 */
     fun initialPuzzleArray(): IntArray = initialPuzzle.copyOf()
@@ -190,7 +193,7 @@ class GameSession private constructor(
         selected = -1
         isWon = false
         accumulatedMs = 0L
-        lastResume = System.currentTimeMillis()
+        lastResume = clock()
         paused = false
     }
 
@@ -304,7 +307,7 @@ class GameSession private constructor(
         // 冻结计时：把最后一段（上次 resume 到此刻）计入总时长。
         // 注意不能调用 pause()——其 !isWon 守卫此时会跳过累计，导致结算显示 0。
         if (!paused) {
-            accumulatedMs += System.currentTimeMillis() - lastResume
+            accumulatedMs += clock() - lastResume
             paused = true
         }
     }
@@ -363,12 +366,11 @@ class GameSession private constructor(
     }
 
     // ---------------------------------------------------------------- 持久化
-    fun toSavedGameEntity(isPlaying: Boolean, savedAt: Long): SavedGameEntity {
+    fun toSnapshot(savedAt: Long): GameSnapshot {
         val valuesStr = values.joinToString("") { (if (it == 0) '0' else '0' + it).toString() }
         val givenStr = given.joinToString("") { if (it) "1" else "0" }
         val notesStr = notes.joinToString(";") { it.joinToString(",") }
-        return SavedGameEntity(
-            id = 1,
+        return GameSnapshot(
             sizeId = sizeId.id,
             sizeName = sizeId.label,
             diffId = difficulty.id,
@@ -393,14 +395,16 @@ class GameSession private constructor(
             difficulty: Difficulty,
             puzzle: IntArray,
             solution: IntArray,
-            flags: GameFlags
+            flags: GameFlags,
+            clock: () -> Long = { System.currentTimeMillis() }
         ): GameSession = GameSession(
             sizeId = sizeId,
             difficulty = difficulty,
             initialPuzzle = puzzle,
             solution = solution,
             flags = flags,
-            isReplay = false
+            isReplay = false,
+            clock = clock
         )
 
         /** 复玩（从历史题面载入，通关不计入成绩）。 */
@@ -409,25 +413,30 @@ class GameSession private constructor(
             difficulty: Difficulty,
             puzzle: IntArray,
             solution: IntArray,
-            flags: GameFlags
+            flags: GameFlags,
+            clock: () -> Long = { System.currentTimeMillis() }
         ): GameSession = GameSession(
             sizeId = sizeId,
             difficulty = difficulty,
             initialPuzzle = puzzle,
             solution = solution,
             flags = flags,
-            isReplay = true
+            isReplay = true,
+            clock = clock
         )
 
-        /** 从存档恢复。 */
-        fun fromSaved(entity: SavedGameEntity): GameSession {
-            val sizeId = SizeId.fromId(entity.sizeId)
-            val diff = BoardDefinitions.difficulty(sizeId, entity.diffId)
+        /** 从快照恢复（实体→快照的映射由 data 层完成，领域层只见 [GameSnapshot]）。 */
+        fun fromSnapshot(
+            snapshot: GameSnapshot,
+            clock: () -> Long = { System.currentTimeMillis() }
+        ): GameSession {
+            val sizeId = SizeId.fromId(snapshot.sizeId)
+            val diff = BoardDefinitions.difficulty(sizeId, snapshot.diffId)
             val n = sizeId.n
             val total = n * n
-            val values = IntArray(total) { entity.values.getOrNull(it)?.digitToIntOrNull() ?: 0 }
-            val given = BooleanArray(total) { entity.given.getOrNull(it) == '1' }
-            val solution = IntArray(total) { entity.solution.getOrNull(it)?.digitToIntOrNull() ?: 0 }
+            val values = IntArray(total) { snapshot.values.getOrNull(it)?.digitToIntOrNull() ?: 0 }
+            val given = BooleanArray(total) { snapshot.given.getOrNull(it) == '1' }
+            val solution = IntArray(total) { snapshot.solution.getOrNull(it)?.digitToIntOrNull() ?: 0 }
             // 干净题面：仅保留固定格，供 reset() 使用（恢复的是存档时的当前盘面）
             val cleanPuzzle = IntArray(total) { if (given[it]) values[it] else 0 }
             val session = GameSession(
@@ -438,20 +447,21 @@ class GameSession private constructor(
                 flags = GameFlags(),
                 isReplay = false,
                 givenOverride = given,
-                startedAtEpoch = entity.savedAt
+                clock = clock,
+                startedAtEpoch = snapshot.savedAt
             )
             // 还原当前盘面与笔记
             for (i in 0 until total) {
                 session.values[i] = values[i]
-                entity.notes.split(";").getOrNull(i)?.takeIf { it.isNotEmpty() }?.split(",")
+                snapshot.notes.split(";").getOrNull(i)?.takeIf { it.isNotEmpty() }?.split(",")
                     ?.mapNotNull { it.toIntOrNull() }?.forEach { session.notes[i].add(it) }
             }
-            session.selected = entity.selected
-            session.hintsUsed = entity.hintsUsed
-            session.mistakes = entity.mistakes
-            session.accumulatedMs = entity.elapsedMs
+            session.selected = snapshot.selected
+            session.hintsUsed = snapshot.hintsUsed
+            session.mistakes = snapshot.mistakes
+            session.accumulatedMs = snapshot.elapsedMs
             session.paused = true
-            session.isWon = entity.isWon
+            session.isWon = snapshot.isWon
             return session
         }
     }

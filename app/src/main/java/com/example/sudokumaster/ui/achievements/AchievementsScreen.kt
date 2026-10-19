@@ -83,13 +83,14 @@ fun AchievementsScreen(
     val vm: AchievementsViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
         factory = vmFactory { AchievementsViewModel(app.container) }
     )
-    val total by vm.totalCount.collectAsStateWithLifecycle()
-    val hell by vm.hellCount.collectAsStateWithLifecycle()
-    val overview by vm.overview.collectAsStateWithLifecycle()
-    val lastPlayed by vm.lastPlayed.collectAsStateWithLifecycle()
-    val groupStats by vm.groupStats.collectAsStateWithLifecycle()
-    val rows by vm.rows.collectAsStateWithLifecycle()
-
+    // A3：单一状态源，一处订阅
+    val state by vm.uiState.collectAsStateWithLifecycle()
+    val total = state.total
+    val hell = state.hellCount
+    val overview = state.overview
+    val lastPlayed = state.lastPlayed
+    val groupStats = state.groupStats
+    val rows = state.rows
     Scaffold(
         contentWindowInsets = WindowInsets(0),
         topBar = {
@@ -321,7 +322,7 @@ private fun AchievementCard(
                                 row.diffId
                             ).en
                         ),
-                        contentDescription = null,
+                        contentDescription = "${row.diffName}难度图标",
                         tint = if (unlocked) barColor else barColor.copy(alpha = 0.55f),
                         modifier = Modifier.size(18.dp)
                     )
@@ -336,7 +337,7 @@ private fun AchievementCard(
                     // 状态图标置于行尾：奖杯（已解锁）/ 锁（未解锁）
                     Icon(
                         imageVector = if (unlocked) Icons.Outlined.EmojiEvents else Icons.Outlined.Lock,
-                        contentDescription = null,
+                        contentDescription = if (unlocked) "已解锁" else "未解锁",
                         tint = if (unlocked) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         modifier = Modifier.size(17.dp)
@@ -382,7 +383,7 @@ private fun AchievementCard(
                         Spacer(Modifier.width(2.dp))
                         Icon(
                             Icons.Filled.PlayArrow,
-                            contentDescription = null,
+                            contentDescription = "前往挑战",
                             tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
                             modifier = Modifier.size(14.dp)
                         )

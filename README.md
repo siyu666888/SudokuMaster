@@ -11,12 +11,12 @@ Compose 完整重写，数据层用 Room + DataStore 落地。
 
 已在本机用 `gradle assembleRelease` 产出可直接安装的正式版：
 
-- 产物：`release/SudokuMaster-1.8.0-release.apk`（约 3.0 MB，R8 混淆 + 资源压缩 + release 签名）
+- 产物：`release/SudokuMaster-1.9.0-release.apk`（约 2.7 MB，R8 混淆 + 资源压缩 + release 签名）
 - 签名：自签名 release 密钥 `keystore/sudoku-release.jks`（PKCS12，RSA 2048，
   有效期 10000 天，`CN=SudokuMaster`）；`apksigner verify` 通过（v2 scheme）。
   - 密钥口令存放于 `keystore.properties`（已被 `.gitignore` 忽略，**切勿入库/外泄**）。
   - 若日后要上架应用商店，请在 Play Console 用同一密钥或改用 Play App Signing。
-- 包信息：`com.example.sudokumaster` · versionCode 15 · versionName 1.8.0 · minSdk 24 / targetSdk 34。
+- 包信息：`com.example.sudokumaster` · versionCode 16 · versionName 1.9.0 · minSdk 24 / targetSdk 34。
 - 启动图标：使用紫蓝渐变 3D「数独 + 手柄」插图，经中心裁剪后生成
   `mipmap-{m,h,x,xx,xxx}hdpi` 的 `ic_launcher.png` / `ic_launcher_round.png`（源图 1536×1536）。
 - 权限：`VIBRATE`（震动反馈，设置内可关）+ AndroidX 自动注入的
@@ -27,8 +27,8 @@ Compose 完整重写，数据层用 Room + DataStore 落地。
 
 ```bash
 # 需 JDK 17 + Android SDK(platform 34 / build-tools 34.0.0)，并设置 ANDROID_HOME
-gradle assembleRelease        # 产出 app/build/outputs/apk/release/SudokuMaster-1.8.0-release.apk
-apksigner verify --print-certs release/SudokuMaster-1.8.0-release.apk
+gradle assembleRelease        # 产出 app/build/outputs/apk/release/SudokuMaster-1.9.0-release.apk
+apksigner verify --print-certs release/SudokuMaster-1.9.0-release.apk
 ```
 
 ## 技术栈与版本
@@ -69,12 +69,12 @@ app/src/main/java/com/example/sudokumaster/
 ├── domain/                        # 纯 Kotlin，无 Android 依赖，可单测
 │   ├── engine/SudokuEngine.kt     # ★ 算法：回溯生成 / 唯一解校验（复用）
 │   ├── model/                     # SizeId / Difficulty / BoardDefinitions / 设置 / UI 状态
-│   └── session/GameSession.kt     # ★ 一局游戏状态机（输入/笔记/提示/撤销/胜负）
+│   └── session/                   # ★ GameSession 状态机 + GameSnapshot（领域快照，不含 Room 依赖）
 ├── data/                          # Room + DataStore + Repository
-│   ├── entity/ dao/               # game_records（历史成绩）/ saved_game（续玩）
-│   ├── SudokuDatabase.kt
+│   ├── entity/ dao/               # game_records（历史成绩）/ saved_game（多槽续玩）
+│   ├── SudokuDatabase.kt          # version 3 + MIGRATION_1_2 / MIGRATION_2_3
 │   ├── SettingsDataStore.kt
-│   └── repository/
+│   └── repository/                # 含 SavedGameMapper.kt（实体↔快照映射）
 ├── viewmodel/                     # Home / Game / History / Settings / Achievements + AppContainer
 ├── ui/
 │   ├── theme/                     # 主题（配色/深色/字号）、Color、Typography
@@ -190,6 +190,27 @@ ui/fx/
   其所在行/列/宫同伴格笔记中的该候选（幂等、O(n²)，n≤9 无感）。原有的「错误标记/警告」开关保留。
 - **底部图标改为彩色**：首页(绿) / 历史(橙) / 成就(紫) / 设置(蓝) 各用专属彩色；选中态用
   填充图标 + 专属色，未选中用淡彩色描边图标（覆盖 v1.1.0 的纯主题色绑定，按用户最新要求）。
+
+## v1.9.0 更新（阶段二：多存档 / 架构解耦 / 性能与无障碍）
+
+- **F1 多存档 + 覆盖确认**：`saved_game` 由单槽（id=1）改为按「尺寸:难度」分槽
+  （`slotId = sizeId:diffId` 主键，Room 迁移 v2→v3，旧单盘自动迁移到对应槽）。
+  不同尺寸 / 难度可各保留一盘未完成进度，互不覆盖；首页「继续游戏」恢复最近保存的一盘。
+  在首页难度卡、历史复玩、设置导入三个入口，若目标难度已有进行中进度，
+  会先弹「继续上一局 / 重新开始（或仍要复玩、仍要导入）/ 取消」确认框。
+- **A1 解耦 + 时钟注入**：领域层 `GameSession` 不再引用 Room 实体，
+  改为产出 / 消费纯领域 `GameSnapshot`，实体↔快照映射（含 slotId 合成）下沉到 data 层
+  （`SavedGameMapper.kt`）。计时统一经由注入的 `clock: () -> Long`
+  （默认 `System.currentTimeMillis`），可单测控制时间流逝；新增 5 个时钟/快照单测。
+- **A3 成就页状态收敛**：`AchievementsViewModel` 的 7 个 StateFlow 收敛为单一
+  `AchievementsUiState`，全部派生数据一次遍历算出，消除同一 Flow 的重复收集与重组。
+- **P2 结算聚合下推 SQL**：新增 `GameRecordDao.minTimeMs(sizeId, diffId)`，
+  结算页的「最快用时 / 是否破纪录」改由 SQL `MIN(timeMs)` 聚合完成，
+  不再把全表读进内存再 `minOf`。
+- **F5 无障碍补齐**：为首页续玩键、成就墙难度/状态图标、游戏工具栏与笔记/擦除按钮、
+  历史难度图标与复玩键、搜索图标等补上 `contentDescription`。
+- 备份格式升级为 `savedGames` 多槽数组（version 2.0），仍兼容读取旧版单 `savedGame` 备份。
+- 版本：versionCode 16 · versionName 1.9.0。单元测试 27 个全部通过。
 
 ## v1.8.0 更新（成就墙扁平化）
 

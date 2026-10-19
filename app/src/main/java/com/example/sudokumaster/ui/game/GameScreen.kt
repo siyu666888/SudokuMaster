@@ -73,6 +73,7 @@ fun GameScreen(
     replayRecordId: Long,
     importedPuzzle: String = "",        // mode=import：题面数字串
     importedSolution: String? = null,   // mode=import：解（可空，自动求解）
+    slotId: String? = null,             // mode=resume：指定 (尺寸:难度) 槽，null=最近保存
     onBack: () -> Unit,
     onNavigateHome: () -> Unit
 ) {
@@ -94,10 +95,10 @@ fun GameScreen(
     DisposableEffect(Unit) { onDispose { celebration.release() } }
 
     // 首次进入：按模式开局 / 恢复 / 复玩 / 导入
-    LaunchedEffect(mode, sizeId, diffId, replayRecordId, importedPuzzle) {
+    LaunchedEffect(mode, sizeId, diffId, replayRecordId, importedPuzzle, slotId) {
         when (mode) {
             "new" -> vm.startNew(sizeId, diffId)
-            "resume" -> vm.resumeFromSaved()
+            "resume" -> vm.resumeFromSaved(slotId)
             "replay" -> vm.replayFromRecord(replayRecordId)
             "import" -> vm.startImported(sizeId, diffId, importedPuzzle, importedSolution)
         }
@@ -417,7 +418,7 @@ private fun PadAction(
         }
     ) {
         if (icon != null) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+            Icon(icon, contentDescription = text, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
         }
         Text(text, maxLines = 1)
@@ -436,7 +437,7 @@ private fun ToolButton(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(
                 imageVector = icon,
-                contentDescription = null,
+                contentDescription = text,
                 modifier = Modifier.size(20.dp),
                 tint = if (enabled) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.onSurfaceVariant

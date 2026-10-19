@@ -27,38 +27,33 @@ data class AchRow(
     val color: Color
 )
 
+/**
+ * 成就页唯一状态源（A3 状态收敛）。
+ *
+ * 所有派生数据（汇总 / 概览 / 分布 / 成就墙）由同一份 records 一次遍历算出，
+ * 界面只订阅本状态，避免多个 StateFlow 各自收集同一 Flow 造成重复计算与重组。
+ */
+data class AchievementsUiState(
+    val total: Int = 0,
+    val hellCount: Int = 0,
+    val bestOverall: Long? = null,
+    val lastPlayed: Long? = null,
+    val overview: StatsAnalyzer.Overview = StatsAnalyzer.Overview(),
+    val groupStats: List<StatsAnalyzer.GroupStat> = emptyList(),
+    val rows: List<AchRow> = emptyList()
+)
+
 class AchievementsViewModel(private val container: AppContainer) : ViewModel() {
     private val statsRepo = container.statsRepository
 
     private val records = statsRepo.allRecords()
 
-    val totalCount: StateFlow<Int> = records.map { it.size }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
-
-    val hellCount: StateFlow<Int> = records.map { list ->
-        list.count { it.sizeId == SizeId.NINE.id && it.diffId == 5 }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
-
-    val bestOverall: StateFlow<Long?> = records.map { list -> list.minOfOrNull { it.timeMs } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
-    /** 最近一局完成时间（空列表为 null）。 */
-    val lastPlayed: StateFlow<Long?> = records.map { list -> list.firstOrNull()?.date }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
-    /** 丰富统计：平均耗时 / 连续获胜天数 / 活跃天数等。 */
-    val overview: StateFlow<StatsAnalyzer.Overview> = records
-        .map { list -> StatsAnalyzer.overview(list.map { WinRecord(it.sizeId, it.diffId, it.timeMs, it.date) }) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), StatsAnalyzer.Overview())
-
-    /** 各难度通关分布（仅含有记录的难度，局数降序）。 */
-    val groupStats: StateFlow<List<StatsAnalyzer.GroupStat>> = records
-        .map { list -> StatsAnalyzer.byDifficulty(list.map { WinRecord(it.sizeId, it.diffId, it.timeMs, it.date) }) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    /** 成就墙：全部 (尺寸:难度) 组合，含未解锁。 */
-    val rows: StateFlow<List<AchRow>> = records.map { list ->
-        BoardDefinitions.TYPES.flatMap { bt ->
+    val uiState: StateFlow<AchievementsUiState> = records.map { list ->
+        val winRecords = list.map { WinRecord(it.sizeId, it.diffId, it.timeMs, it.date) }
+        val overview = StatsAnalyzer.overview(winRecords)
+        val groupStats = StatsAnalyzer.byDifficulty(winRecords)
+        // 成就墙：全部 (尺寸:难度) 组合，含未解锁
+        val rows = BoardDefinitions.TYPES.flatMap { bt ->
             bt.diffs.map { d ->
                 val same = list.filter { it.sizeId == bt.size.id && it.diffId == d.id }
                 AchRow(
@@ -74,5 +69,14 @@ class AchievementsViewModel(private val container: AppContainer) : ViewModel() {
                 )
             }
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        AchievementsUiState(
+            total = list.size,
+            hellCount = list.count { it.sizeId == SizeId.NINE.id && it.diffId == 5 },
+            bestOverall = list.minOfOrNull { it.timeMs },
+            lastPlayed = list.firstOrNull()?.date,
+            overview = overview,
+            groupStats = groupStats,
+            rows = rows
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AchievementsUiState())
 }

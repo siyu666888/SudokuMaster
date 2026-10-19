@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -40,6 +41,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -49,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.sudokumaster.SudokuApplication
+import com.example.sudokumaster.data.entity.GameRecordEntity
 import com.example.sudokumaster.domain.game.StatsAnalyzer
 import com.example.sudokumaster.domain.model.BoardDefinitions
 import com.example.sudokumaster.domain.model.SizeId
@@ -72,7 +77,8 @@ private val StarGold = Color(0xFFFFC53D)
 @Composable
 fun HistoryScreen(
     onBack: () -> Unit,
-    onReplay: (Long) -> Unit
+    onReplay: (Long) -> Unit,
+    onResume: (slotId: String) -> Unit
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as SudokuApplication
@@ -84,7 +90,10 @@ fun HistoryScreen(
     val query by vm.query.collectAsStateWithLifecycle()
     val sizeFilter by vm.sizeFilter.collectAsStateWithLifecycle()
     val diffFilter by vm.diffFilter.collectAsStateWithLifecycle()
+    val activeSlotKeys by vm.activeSlotKeys.collectAsStateWithLifecycle()
     val filterActive = query.isNotBlank() || sizeFilter != null || diffFilter != null
+    // 复玩覆盖确认：目标 (尺寸:难度) 有进行中进度时先询问（F1）
+    var pendingReplay by remember { mutableStateOf<GameRecordEntity?>(null) }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0),
@@ -120,7 +129,7 @@ fun HistoryScreen(
                 ) {
                     Icon(
                         Icons.Filled.Search,
-                        contentDescription = null,
+                        contentDescription = "搜索历史记录",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
@@ -254,13 +263,47 @@ fun HistoryScreen(
                                     )
                                 }
                                 items(items, key = { it.id }) { rec ->
-                                    HistoryRecordCard(rec = rec, onReplay = onReplay)
+                                    HistoryRecordCard(
+                                        rec = rec,
+                                        onReplay = {
+                                            // 该 (尺寸:难度) 已有进行中进度时先确认，避免误覆盖（F1）
+                                            if (BoardDefinitions.statsKey(rec.sizeId, rec.diffId) in activeSlotKeys) {
+                                                pendingReplay = rec
+                                            } else onReplay(rec.id)
+                                        }
+                                    )
                                 }
                             }
                         }
                     }
                 }
             }
+        }
+
+        // 复玩覆盖确认：继续上一局 / 仍要复玩 / 取消
+        pendingReplay?.let { rec ->
+            AlertDialog(
+                onDismissRequest = { pendingReplay = null },
+                title = { Text("该难度还有未完成的对局") },
+                text = {
+                    Text("「${rec.sizeName} · ${rec.diffName}」有一盘进行中的进度，复玩会覆盖它。")
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        pendingReplay = null
+                        onReplay(rec.id)
+                    }) { Text("仍要复玩") }
+                },
+                dismissButton = {
+                    Row {
+                        TextButton(onClick = {
+                            pendingReplay = null
+                            onResume(BoardDefinitions.statsKey(rec.sizeId, rec.diffId))
+                        }) { Text("继续上一局") }
+                        TextButton(onClick = { pendingReplay = null }) { Text("取消") }
+                    }
+                }
+            )
         }
     }
 }
@@ -310,7 +353,7 @@ private fun HistoryRecordCard(
                                     rec.diffId
                                 ).en
                             ),
-                            contentDescription = null,
+                            contentDescription = "${rec.diffName}难度图标",
                             tint = color,
                             modifier = Modifier.size(18.dp)
                         )
@@ -359,7 +402,7 @@ private fun HistoryRecordCard(
                     Spacer(Modifier.width(8.dp))
                     Icon(
                         Icons.Filled.PlayArrow,
-                        contentDescription = null,
+                        contentDescription = "复玩本局",
                         tint = color,
                         modifier = Modifier.size(22.dp)
                     )

@@ -6,6 +6,7 @@ import com.example.sudokumaster.data.entity.GameRecordEntity
 import com.example.sudokumaster.data.repository.GameRepository
 import com.example.sudokumaster.data.repository.SettingsRepository
 import com.example.sudokumaster.data.repository.StatsRepository
+import com.example.sudokumaster.data.repository.toSnapshot
 import com.example.sudokumaster.domain.engine.BoardConfig
 import com.example.sudokumaster.domain.engine.SudokuEngine
 import com.example.sudokumaster.domain.game.ScoreCalculator
@@ -106,14 +107,20 @@ class GameViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    fun resumeFromSaved() {
+    fun resumeFromSaved(slotId: String? = null) {
         viewModelScope.launch {
-            val entity = gameRepo.getSaved()
+            val entity = if (slotId != null) {
+                val sid = slotId.substringBefore(':')
+                val did = slotId.substringAfter(':').toIntOrNull() ?: 1
+                gameRepo.observeSlot(sid, did).first()
+            } else {
+                gameRepo.getLatestSaved()
+            }
             if (entity == null) {
                 _toast.value = "没有进行中的对局"
                 return@launch
             }
-            session = GameSession.fromSaved(entity).apply {
+            session = GameSession.fromSnapshot(entity.toSnapshot()).apply {
                 flags = GameFlags(settings.showError, settings.highlightSame, settings.autoExclude)
                 hintMode = settings.hintMode
                 if (!isWon) resume()
@@ -228,7 +235,7 @@ class GameViewModel(private val container: AppContainer) : ViewModel() {
     fun saveCurrent() {
         session?.let { s ->
             viewModelScope.launch {
-                gameRepo.saveCurrent(s.toSavedGameEntity(!s.isWon, System.currentTimeMillis()))
+                gameRepo.saveSnapshot(s.toSnapshot(System.currentTimeMillis()))
             }
         }
     }
@@ -277,11 +284,11 @@ class GameViewModel(private val container: AppContainer) : ViewModel() {
                     )
                 )
             }
-            gameRepo.clearSaved()
+            // 只清除本难度这一槽，其他尺寸/难度的进行中进度保留（F1 多槽）
+            gameRepo.clearSlot(s.sizeId.id, s.difficulty.id)
 
-            val all = statsRepo.allRecords().first()
-            val sameKey = all.filter { it.sizeId == s.sizeId.id && it.diffId == s.difficulty.id }
-            val best = sameKey.minOfOrNull { it.timeMs }
+            // 最快用时由 SQL 聚合下推完成（P2），避免把全表读进内存再 minOf
+            val best = statsRepo.minTimeMs(s.sizeId.id, s.difficulty.id)
             _winInfo.value = WinInfo(
                 sizeId = s.sizeId,
                 diffId = s.difficulty.id,

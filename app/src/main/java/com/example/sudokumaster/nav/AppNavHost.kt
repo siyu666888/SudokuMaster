@@ -36,14 +36,15 @@ fun AppNavHost(navController: NavHostController) {
             composable(Routes.HOME) {
                 HomeScreen(
                     onNewGame = { size, diff -> navController.navigate(Routes.newGame(size.id, diff)) },
-                    onResume = { navController.navigate(Routes.resume()) }
+                    onResume = { slotId -> navController.navigate(Routes.resume(slotId)) }
                 )
             }
 
             composable(Routes.HISTORY) {
                 HistoryScreen(
                     onBack = { navController.popBackStack() },
-                    onReplay = { recordId -> navController.navigate(Routes.replay(recordId)) }
+                    onReplay = { recordId -> navController.navigate(Routes.replay(recordId)) },
+                    onResume = { slotId -> navController.navigate(Routes.resume(slotId)) }
                 )
             }
 
@@ -52,7 +53,8 @@ fun AppNavHost(navController: NavHostController) {
                     onBack = { navController.popBackStack() },
                     onPlayImported = { sizeId, diffId, puzzle, solution ->
                         navController.navigate(Routes.importGame(sizeId, diffId, puzzle, solution))
-                    }
+                    },
+                    onResume = { slotId -> navController.navigate(Routes.resume(slotId)) }
                 )
             }
 
@@ -73,7 +75,8 @@ fun AppNavHost(navController: NavHostController) {
                     navArgument("diffId") { type = NavType.IntType; defaultValue = 1 },
                     navArgument("recordId") { type = NavType.LongType; defaultValue = -1L },
                     navArgument("puzzle") { type = NavType.StringType; defaultValue = "" },
-                    navArgument("solution") { type = NavType.StringType; defaultValue = "" }
+                    navArgument("solution") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("slotId") { type = NavType.StringType; defaultValue = "" }
                 )
             ) { backStackEntry ->
                 val mode = backStackEntry.arguments?.getString("mode") ?: "new"
@@ -82,6 +85,7 @@ fun AppNavHost(navController: NavHostController) {
                 val recordId = backStackEntry.arguments?.getLong("recordId") ?: -1L
                 val importedPuzzle = backStackEntry.arguments?.getString("puzzle") ?: ""
                 val importedSolution = backStackEntry.arguments?.getString("solution")?.ifBlank { null }
+                val slotId = backStackEntry.arguments?.getString("slotId")?.ifBlank { null }
                 GameScreen(
                     sizeId = sizeId,
                     diffId = diffId,
@@ -89,6 +93,7 @@ fun AppNavHost(navController: NavHostController) {
                     replayRecordId = recordId,
                     importedPuzzle = importedPuzzle,
                     importedSolution = importedSolution,
+                    slotId = slotId,
                     onBack = { navController.popBackStack() },
                     onNavigateHome = {
                         navController.popBackStack(route = Routes.HOME, inclusive = false)

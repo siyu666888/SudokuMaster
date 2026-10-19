@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -27,11 +28,11 @@ data class ImportedPuzzle(
     val solution: String?   // 缺失或与题面冲突时由 GameViewModel 自动求解
 )
 
-/** 全量备份结果（历史记录 + 进行中进度）。 */
+/** 全量备份结果（历史记录 + 多槽进行中进度）。 */
 data class BackupResult(
     val json: String,
     val recordCount: Int,
-    val hasSavedGame: Boolean
+    val savedCount: Int
 )
 
 class SettingsViewModel(private val container: AppContainer) : ViewModel() {
@@ -41,6 +42,11 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 
     val settings: StateFlow<AppSettings> = settingsRepo.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppSettings())
+
+    /** 有未通关进度的槽位键集合（"sizeId:diffId"），导入开局前用于覆盖确认（F1）。 */
+    val activeSlotKeys: StateFlow<Set<String>> = gameRepo.observeAllSlots()
+        .map { list -> list.filter { !it.isWon }.map { "${it.sizeId}:${it.diffId}" }.toSet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     fun update(transform: AppSettings.() -> AppSettings) {
         viewModelScope.launch { settingsRepo.update(transform) }
@@ -99,14 +105,14 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
 
     // ------------------------------------------------------------ 备份 / 恢复
 
-    /** 导出全量备份（历史记录 + 进行中进度）为 JSON。 */
+    /** 导出全量备份（历史记录 + 全部进行中进度槽）为 JSON。 */
     suspend fun exportBackup(): BackupResult = withContext(Dispatchers.Default) {
         val records = gameRepo.allRecordsOnce()
-        val saved = gameRepo.getSaved()
+        val savedGames = gameRepo.getAllSlots()
         BackupResult(
-            json = buildBackupJson(records, saved),
+            json = buildBackupJson(records, savedGames),
             recordCount = records.size,
-            hasSavedGame = saved != null
+            savedCount = savedGames.size
         )
     }
 
@@ -138,15 +144,34 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
                     stars = o.optInt("stars", 0)
                 )
             }
-            val saved = parseSavedGame(obj.optJSONObject("savedGame"))
-            gameRepo.restoreBackup(records, saved)
+            val savedGames = parseSavedGames(obj)
+            gameRepo.restoreBackup(records, savedGames)
             buildString {
                 append("已恢复 ${records.size} 条记录")
-                if (saved != null) append("与进行中进度")
+                if (savedGames.isNotEmpty()) append("与 ${savedGames.size} 盘进行中进度")
             }
         } catch (_: Exception) {
             "备份数据解析失败，请检查 JSON 内容"
         }
+    }
+
+    /**
+     * 解析进行中进度槽列表。兼容两种格式：
+     *  - 新版：`savedGames` 为槽数组（每项含 sizeId/diffId，映射时合成 slotId）；
+     *  - 旧版：`savedGame` 为单个对象（v1.x 备份），作为唯一槽载入。
+     */
+    private fun parseSavedGames(obj: JSONObject): List<SavedGameEntity> {
+        val result = mutableListOf<SavedGameEntity>()
+        val arr = obj.optJSONArray("savedGames")
+        if (arr != null) {
+            for (i in 0 until arr.length()) {
+                parseSavedGame(arr.optJSONObject(i))?.let { result += it }
+            }
+        }
+        if (result.isEmpty()) {
+            parseSavedGame(obj.optJSONObject("savedGame"))?.let { result += it }
+        }
+        return result
     }
 
     private fun parseSavedGame(o: JSONObject?): SavedGameEntity? {
@@ -161,6 +186,7 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
             val diffId = o.optInt("diffId", 1)
             if (BoardDefinitions.get(size).diffs.none { it.id == diffId }) return null
             SavedGameEntity(
+                slotId = "${size.id}:$diffId",
                 sizeId = size.id,
                 sizeName = size.label,
                 diffId = diffId,
@@ -181,11 +207,11 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
         }
     }
 
-    private fun buildBackupJson(records: List<GameRecordEntity>, saved: SavedGameEntity?): String =
+    private fun buildBackupJson(records: List<GameRecordEntity>, savedGames: List<SavedGameEntity>): String =
         buildString {
             append("{")
             append("\"app\":\"数独大师\",")
-            append("\"version\":\"1.0\",")
+            append("\"version\":\"2.0\",")
             append("\"type\":\"backup\",")
             append("\"exportedAt\":${System.currentTimeMillis()},")
             append("\"records\":[")
@@ -205,25 +231,26 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
                 append("}")
             }
             append("],")
-            append("\"savedGame\":")
-            if (saved != null) {
+            append("\"savedGames\":[")
+            savedGames.forEachIndexed { i, s ->
+                if (i > 0) append(",")
                 append("{")
-                append("\"sizeId\":\"${saved.sizeId}\",")
-                append("\"sizeName\":\"${saved.sizeName}\",")
-                append("\"diffId\":${saved.diffId},")
-                append("\"diffName\":\"${saved.diffName}\",")
-                append("\"values\":\"${saved.values}\",")
-                append("\"given\":\"${saved.given}\",")
-                append("\"notes\":\"${saved.notes}\",")
-                append("\"solution\":\"${saved.solution}\",")
-                append("\"selected\":${saved.selected},")
-                append("\"hintsUsed\":${saved.hintsUsed},")
-                append("\"mistakes\":${saved.mistakes},")
-                append("\"elapsedMs\":${saved.elapsedMs},")
-                append("\"isWon\":${saved.isWon},")
-                append("\"savedAt\":${saved.savedAt}")
+                append("\"sizeId\":\"${s.sizeId}\",")
+                append("\"sizeName\":\"${s.sizeName}\",")
+                append("\"diffId\":${s.diffId},")
+                append("\"diffName\":\"${s.diffName}\",")
+                append("\"values\":\"${s.values}\",")
+                append("\"given\":\"${s.given}\",")
+                append("\"notes\":\"${s.notes}\",")
+                append("\"solution\":\"${s.solution}\",")
+                append("\"selected\":${s.selected},")
+                append("\"hintsUsed\":${s.hintsUsed},")
+                append("\"mistakes\":${s.mistakes},")
+                append("\"elapsedMs\":${s.elapsedMs},")
+                append("\"isWon\":${s.isWon},")
+                append("\"savedAt\":${s.savedAt}")
                 append("}")
-            } else append("null")
-            append("}")
+            }
+            append("]}")
         }
 }

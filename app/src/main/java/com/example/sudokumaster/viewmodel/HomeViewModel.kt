@@ -20,8 +20,14 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     private val statsRepo = container.statsRepository
     private val settingsRepo = container.settingsRepository
 
-    val savedGame: StateFlow<SavedGameEntity?> = gameRepo.observeSaved()
+    /** 最近保存的进度（首页「继续游戏」卡片；多槽时取 savedAt 最大者）。 */
+    val savedGame: StateFlow<SavedGameEntity?> = gameRepo.observeLatestSaved()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    /** 有未通关进度的槽位键集合（"sizeId:diffId"），用于新开局前的覆盖确认（F1）。 */
+    val activeSlotKeys: StateFlow<Set<String>> = gameRepo.observeAllSlots()
+        .map { list -> list.filter { !it.isWon }.map { "${it.sizeId}:${it.diffId}" }.toSet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     val settings: StateFlow<AppSettings> = settingsRepo.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppSettings())

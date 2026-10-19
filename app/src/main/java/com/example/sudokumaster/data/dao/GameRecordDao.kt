@@ -21,6 +21,10 @@ interface GameRecordDao {
     @Query("SELECT * FROM game_records WHERE id = :id")
     suspend fun getById(id: Long): GameRecordEntity?
 
+    /** 指定 (尺寸:难度) 的历史最快用时（无记录时返回 null）。聚合下推 SQL（P2）。 */
+    @Query("SELECT MIN(timeMs) FROM game_records WHERE sizeId = :sizeId AND diffId = :diffId")
+    suspend fun minTimeMs(sizeId: String, diffId: Int): Long?
+
     @Insert
     suspend fun insertAll(records: List<GameRecordEntity>)
 

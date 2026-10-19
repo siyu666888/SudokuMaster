@@ -21,6 +21,12 @@ import kotlinx.coroutines.flow.stateIn
  */
 class HistoryViewModel(private val container: AppContainer) : ViewModel() {
     private val statsRepo = container.statsRepository
+    private val gameRepo = container.gameRepository
+
+    /** 有未通关进度的槽位键集合（"sizeId:diffId"），复玩前用于覆盖确认（F1）。 */
+    val activeSlotKeys: StateFlow<Set<String>> = gameRepo.observeAllSlots()
+        .map { list -> list.filter { !it.isWon }.map { "${it.sizeId}:${it.diffId}" }.toSet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()

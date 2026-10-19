@@ -2,6 +2,7 @@ package com.example.sudokumaster.ui.settings
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,7 +14,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,10 +44,13 @@ import com.example.sudokumaster.domain.model.FontScale
 import com.example.sudokumaster.domain.model.HighlightColor
 import com.example.sudokumaster.domain.model.HintMode
 import com.example.sudokumaster.domain.model.Palette
+import com.example.sudokumaster.domain.model.SizeId
 import com.example.sudokumaster.domain.model.ThemeMode
+import com.example.sudokumaster.domain.model.BoardDefinitions
 import com.example.sudokumaster.ui.components.ModuleCard
 import com.example.sudokumaster.ui.components.SegmentedControl
 import com.example.sudokumaster.ui.components.SwitchRow
+import com.example.sudokumaster.viewmodel.ImportedPuzzle
 import com.example.sudokumaster.viewmodel.SettingsViewModel
 import com.example.sudokumaster.viewmodel.vmFactory
 import kotlinx.coroutines.delay
@@ -56,7 +60,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
-    onPlayImported: (sizeId: String, diffId: Int, puzzle: String, solution: String?) -> Unit
+    onPlayImported: (sizeId: String, diffId: Int, puzzle: String, solution: String?) -> Unit,
+    onResume: (slotId: String) -> Unit
 ) {
     val context = LocalContext.current
     val app = context.applicationContext as SudokuApplication
@@ -64,6 +69,7 @@ fun SettingsScreen(
         factory = vmFactory { SettingsViewModel(app.container) }
     )
     val settings by vm.settings.collectAsStateWithLifecycle()
+    val activeSlotKeys by vm.activeSlotKeys.collectAsStateWithLifecycle()
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
 
@@ -74,6 +80,8 @@ fun SettingsScreen(
     var showRestore by remember { mutableStateOf(false) }
     var restoreText by remember { mutableStateOf("") }
     var toast by remember { mutableStateOf<String?>(null) }
+    // 导入开局覆盖确认：目标 (尺寸:难度) 有进行中进度时先询问（F1）
+    var pendingImport by remember { mutableStateOf<ImportedPuzzle?>(null) }
 
     // 真实版本号（随构建自动更新，避免写死显示不全）
     val versionName = remember {
@@ -146,23 +154,23 @@ fun SettingsScreen(
                 SwitchRow("长按切换笔记", "长按格子快速开关笔记模式", settings.longPressNote) {
                     vm.update { copy(longPressNote = it) }
                 }
-                Divider()
+                HorizontalDivider()
                 SwitchRow("错误标记", "填入与解冲突的数字时标红", settings.showError) {
                     vm.update { copy(showError = it) }
                 }
-                Divider()
+                HorizontalDivider()
                 SwitchRow("同值高亮", "高亮与选中格相同的数字", settings.highlightSame) {
                     vm.update { copy(highlightSame = it) }
                 }
-                Divider()
+                HorizontalDivider()
                 SwitchRow("候选数自动排除", "填入数字后自动清除同行列宫的该候选", settings.autoExclude) {
                     vm.update { copy(autoExclude = it) }
                 }
-                Divider()
+                HorizontalDivider()
                 SwitchRow("自动笔记按钮", "在工具栏显示一键笔记按钮", settings.autoNote) {
                     vm.update { copy(autoNote = it) }
                 }
-                Divider()
+                HorizontalDivider()
                 SwitchRow("快速生成", "低端设备提速（题目略易）", settings.fastGen) {
                     vm.update { copy(fastGen = it) }
                 }
@@ -174,7 +182,7 @@ fun SettingsScreen(
                 SwitchRow("震动反馈", "操作时轻微震动", settings.vibrate) {
                     vm.update { copy(vibrate = it) }
                 }
-                Divider()
+                HorizontalDivider()
                 SwitchRow("提示音", "操作时轻响一声", settings.sound) {
                     vm.update { copy(sound = it) }
                 }
@@ -186,7 +194,7 @@ fun SettingsScreen(
                 SettingsClickRow("导入题目", "粘贴题目 JSON（缺解时自动求解），立即开局") {
                     showImport = true
                 }
-                Divider()
+                HorizontalDivider()
                 SettingsClickRow("备份全部数据", "历史记录与进行中进度存为 JSON（复制到剪贴板）") {
                     scope.launch {
                         val backup = vm.exportBackup()
@@ -194,11 +202,11 @@ fun SettingsScreen(
                         toast = "备份已复制到剪贴板（${backup.recordCount} 条记录）"
                     }
                 }
-                Divider()
+                HorizontalDivider()
                 SettingsClickRow("恢复数据", "从备份 JSON 恢复（覆盖现有记录与进度）") {
                     showRestore = true
                 }
-                Divider()
+                HorizontalDivider()
                 SettingsClickRow("导出题目", "最近一条题目存为 JSON（复制到剪贴板）") {
                     scope.launch {
                         val json = vm.exportJson()
@@ -208,7 +216,7 @@ fun SettingsScreen(
                         } else toast = "暂无可导出的题目"
                     }
                 }
-                Divider()
+                HorizontalDivider()
                 SettingsClickRow("清除所有游戏记录", "清空成绩与历史，保留题库") {
                     showClear = true
                 }
@@ -299,6 +307,8 @@ fun SettingsScreen(
                         val parsed = vm.parsePuzzleImport(importText)
                         if (parsed == null) {
                             toast = "JSON 格式有误或题面不合法"
+                        } else if (BoardDefinitions.statsKey(parsed.sizeId, parsed.diffId) in activeSlotKeys) {
+                            pendingImport = parsed   // 有进行中进度，先确认再开局
                         } else {
                             showImport = false
                             onPlayImported(parsed.sizeId, parsed.diffId, parsed.puzzle, parsed.solution)
@@ -345,6 +355,34 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showRestore = false }) { Text("取消") }
+            }
+        )
+    }
+
+    // 导入开局覆盖确认：继续上一局 / 仍要导入开局 / 取消
+    pendingImport?.let { p ->
+        val pSize = SizeId.fromId(p.sizeId)
+        val pDiff = BoardDefinitions.difficultyOrFirst(pSize, p.diffId)
+        AlertDialog(
+            onDismissRequest = { pendingImport = null },
+            title = { Text("该难度还有未完成的对局") },
+            text = {
+                Text("「${pSize.label} · ${pDiff.name}」有一盘进行中的进度，导入开新局会覆盖它。")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingImport = null
+                    onPlayImported(p.sizeId, p.diffId, p.puzzle, p.solution)
+                }) { Text("仍要导入开局") }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        pendingImport = null
+                        onResume(BoardDefinitions.statsKey(p.sizeId, p.diffId))
+                    }) { Text("继续上一局") }
+                    TextButton(onClick = { pendingImport = null }) { Text("取消") }
+                }
             }
         )
     }
