@@ -7,6 +7,28 @@ Compose 完整重写，数据层用 Room + DataStore 落地。
 - 纯单机、离线运行，不请求网络权限，不收集 / 不上传任何数据。
 - 支持 **四宫格 4×4 / 六宫格 6×6 / 九宫格 9×9** 三种棋盘。
 
+## 界面预览
+
+<img src="docs/screenshots/demo.gif" width="300" alt="对局交互演示：填数、擦除、笔记模式">
+
+上图是**真实点击驱动**的录制，不是静态图拼接：填入正确数字 5 → 擦除 → 打开笔记模式
+（数字盘转为主色底）→ 记录候选 4、7 → 关闭笔记模式。
+
+| 首页 | 对局 | 成就 |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/01-home.png" width="230"> | <img src="docs/screenshots/02-game.png" width="230"> | <img src="docs/screenshots/03-achievements.png" width="230"> |
+| 继续游戏卡片、棋盘尺寸切换、难度卡（完成局数 / 最佳用时） | 九宫格对局：选区与同值高亮、数字盘剩余数、笔记与擦除 | 汇总卡、数据统计、各难度通关分布 |
+
+| 历史记录 | 设置 |
+|:---:|:---:|
+| <img src="docs/screenshots/04-history.png" width="230"> | <img src="docs/screenshots/05-settings.png" width="230"> |
+| 按自然日分组、星级与得分、尺寸 / 难度筛选 | 外观（主题 / 配色 / 字号）、玩法开关、提示模式 |
+
+> **这些图怎么来的**：不是设计稿，也不是手动截屏拼贴。`ScreenshotTest` 在 JVM 上用
+> Robolectric + 真实 Skia 渲染**线上 Composable**（同一个 `HomeScreen` / `GameScreen`…），
+> 数据来自测试预置的真实 Room 记录，因此界面改了图就会跟着变。界面调整后执行
+> `ANDROID_HOME=... ./tools/export_screenshots.sh` 即可一键重新生成截图与动图，无需模拟器或真机。
+
 ## 开源许可与贡献
 
 - **许可协议：GNU General Public License v3.0（GPL-3.0）**，详见 [LICENSE](LICENSE)。
@@ -16,7 +38,13 @@ Compose 完整重写，数据层用 Room + DataStore 落地。
 - **欢迎贡献**：请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)（中英双语），
   其中包含环境要求、构建测试命令、代码结构导读、工程红线与 PR 流程。
   高优先级方向：**界面文案国际化（i18n）**、无障碍、单元测试补充。
-- 仓库内 `.github/` 暂未配置 issue / PR 模板，直接描述即可。
+- **提问与讨论**：使用疑问、设计思路、功能想法投票请走
+  [GitHub Discussions](https://github.com/siyu666888/SudokuMaster/discussions)
+  （分为 Q&A / Ideas / General / Show and tell 等分类），不占用 Issue。
+- **反馈问题**：[新建 Issue](https://github.com/siyu666888/SudokuMaster/issues/new/choose)
+  会提供两个结构化表单——**Bug 报告**与**功能建议**。Bug 表单里有两项请务必填准：
+  「应用版本」与「**全新安装还是从旧版本升级安装**」。这个区分很关键：数据迁移只在
+  升级路径上发生，有些问题（例如启动闪退）在全新安装时完全复现不出来。
 
 ## 正式版 APK（已构建并签名）
 

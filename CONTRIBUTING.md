@@ -28,7 +28,9 @@
 ## 行为准则
 
 - 对事不对人，讨论聚焦代码与问题本身；欢迎不同意见，但不接受人身攻击。
-- 提 issue 请写清复现步骤、设备/系统版本、实际与期望行为。
+- **提问、聊想法**走 [Discussions](https://github.com/siyu666888/SudokuMaster/discussions)；
+  **确认要报的 Bug / 功能建议**走 [Issue 表单](https://github.com/siyu666888/SudokuMaster/issues/new/choose)，
+  表单已把复现步骤、设备与系统版本、安装方式（全新 / 升级）列为必填，照着填就好。
 - 维护者可能关闭范围蔓延或与项目定位不符的提议，这不代表你的想法不好。
 
 ## 我能帮上什么
@@ -41,10 +43,11 @@
 | **无障碍** | 补 `contentDescription`、焦点顺序、TalkBack 适配 |
 | **新棋盘 / 新难度** | `domain/model/BoardModels.kt` 中增加尺寸与难度（注意 `SudokuEngine` 与存档兼容） |
 | **题库扩展** | 改进「导入题目 JSON」的解析与校验（`SettingsViewModel.parsePuzzleImport`） |
-| **单元测试** | `app/src/test` 目前 27 个用例，domain 层尤其欢迎补充边界测试 |
+| **单元测试** | `app/src/test` 目前 37 个用例（含 6 个界面渲染用例），domain 层尤其欢迎补充边界测试 |
 | **Bug 修复** | 见 [Issues](https://github.com/siyu666888/SudokuMaster/issues) |
 
-> 想先聊再动手？直接开一个 issue 说明想法，避免白做。
+> 想先聊再动手？在 [Discussions · Ideas](https://github.com/siyu666888/SudokuMaster/discussions/categories/ideas)
+> 发个帖子说明想法，先听听意见，避免白做。
 
 ## 环境要求
 
@@ -69,7 +72,8 @@ export ANDROID_HOME=~/Android/Sdk        # macOS / Linux
 ## 构建与测试
 
 ```bash
-# 跑单元测试（JUnit 4，约 1 分钟内）
+# 跑全部单测（JUnit 4）。纯 domain 用例约 1 分钟；
+# 含 Robolectric 渲染用例时整体约 4~5 分钟（首次需下载 android-all）
 gradle testDebugUnitTest
 
 # 打 debug 包并安装到已连接设备
@@ -87,6 +91,17 @@ release 包由维护者在本地构建后放入 `release/` 目录（`release/*.a
 **提交前请至少跑通 `gradle testDebugUnitTest`**；改了 UI 的话建议再跑一次
 `gradle assembleDebug` 确认能编译。本项目目前的验收标准是
 「测试全绿 + release 包构建成功 + `apksigner verify` 通过」。
+
+**README 配图怎么更新**：界面截图与演示动图由 Robolectric 在 JVM 上渲染真实
+Composable 得到（`ScreenshotTest` / `GifFramesTest`），**不需要模拟器或真机**。
+改完 UI 后执行：
+
+```bash
+ANDROID_HOME=/path/to/sdk ./tools/export_screenshots.sh
+```
+
+脚本会重跑这两个测试、把 PNG 同步到 `docs/screenshots/`，并用 ffmpeg 重新合成
+`demo.gif`。如果只是改了布局，记得把重新生成的图片一并提交。
 
 ## 代码结构导读
 
@@ -147,7 +162,7 @@ app/src/main/java/com/example/sudokumaster/
 
 - 主题行用中文，`：` 后接摘要，控制在 50 字左右。
 - 正文用 `-` 列表说明改了什么、为什么。
-- 有验证结论就写上（如「27 个单测全绿 + assembleRelease 成功」）。
+- 有验证结论就写上（如「37 个单测全绿 + assembleRelease 成功」）。
 - 一个 commit 做一件事；不要把无关改动混在一起。
 
 ## Pull Request 流程
@@ -209,8 +224,11 @@ app/src/main/java/com/example/sudokumaster/
 ## Code of conduct
 
 - Critique code, not people. Disagreement is welcome; personal attacks are not.
-- When filing an issue, include reproduction steps, device/OS version, and actual vs.
-  expected behaviour.
+- **Questions and open-ended ideas** go to [Discussions](https://github.com/siyu666888/SudokuMaster/discussions).
+  **Confirmed bugs / concrete feature requests** go through the
+  [issue forms](https://github.com/siyu666888/SudokuMaster/issues/new/choose), which already
+  require reproduction steps, device/OS version, and — importantly — whether it was a fresh
+  install or an in-place upgrade.
 - Maintainers may close proposals that drift out of scope — that is not a judgement of
   the idea itself.
 
@@ -224,10 +242,12 @@ You do not need to start with a big refactor. All of these are genuinely useful:
 | **Accessibility** | Fill in `contentDescription`, focus order, TalkBack support |
 | **New board sizes / difficulties** | Add entries in `domain/model/BoardModels.kt` (mind `SudokuEngine` limits and save compatibility) |
 | **Puzzle bank** | Improve the puzzle-JSON import parser and validation (`SettingsViewModel.parsePuzzleImport`) |
-| **Unit tests** | 27 cases live in `app/src/test`; the `domain` layer especially welcomes edge-case coverage |
+| **Unit tests** | 37 cases live in `app/src/test`; the `domain` layer especially welcomes edge-case coverage |
 | **Bug fixes** | See [Issues](https://github.com/siyu666888/SudokuMaster/issues) |
 
-> Want to talk before coding? Open an issue and describe the idea first.
+> Want to talk before coding? Post in
+> [Discussions · Ideas](https://github.com/siyu666888/SudokuMaster/discussions/categories/ideas)
+> first so we can sanity-check the direction.
 
 ## Prerequisites
 
@@ -252,7 +272,8 @@ export ANDROID_HOME=~/Android/Sdk        # macOS / Linux
 ## Building and testing
 
 ```bash
-# Run the unit tests (JUnit 4, ~1 minute)
+# Run all unit tests (JUnit 4). Domain-only cases take ~1 minute;
+# with the Robolectric render tests the whole run is ~4-5 min (first run downloads android-all)
 gradle testDebugUnitTest
 
 # Build and install the debug APK on a connected device
@@ -271,6 +292,17 @@ by the maintainer and dropped into `release/` (`release/*.apk` is also untracked
 **Before opening a PR, at minimum run `gradle testDebugUnitTest`**; if you touched the UI,
 also run `gradle assembleDebug` to confirm it compiles. The project's acceptance bar is
 "all tests green + release build succeeds + `apksigner verify` passes".
+
+**Regenerating the README images**: the screenshots and the demo GIF are rendered from the
+real composables on the JVM by Robolectric (`ScreenshotTest` / `GifFramesTest`) — no emulator
+or device needed. After a UI change run:
+
+```bash
+ANDROID_HOME=/path/to/sdk ./tools/export_screenshots.sh
+```
+
+It re-runs both tests, copies the PNGs into `docs/screenshots/`, and rebuilds `demo.gif`
+with ffmpeg. Commit the regenerated images along with your layout change.
 
 ## Codebase tour
 
@@ -336,7 +368,7 @@ Verification: <test/build results>
 
 - Topic line in Chinese, summary after `：`, keep it around 50 characters.
 - Body as a `-` list of what changed and why.
-- Include verification results when you have them (e.g. "27 tests green + assembleRelease OK").
+- Include verification results when you have them (e.g. "37 tests green + assembleRelease OK").
 - One commit does one thing; don't mix unrelated changes.
 
 ## Pull request workflow

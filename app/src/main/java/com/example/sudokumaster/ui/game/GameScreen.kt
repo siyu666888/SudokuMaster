@@ -47,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -362,6 +363,9 @@ private fun NumberPad(
                                 modifier = Modifier
                                     .weight(1f)
                                     .aspectRatio(if (n <= 6) 1f else 0.9f)
+                                    // 测试锚点：按钮同时渲染「数字 + 剩余数」，仅靠文本无法唯一定位
+                                    // （例如点「5」会命中剩余数为 5 的「9」按钮）
+                                    .testTag("pad-$d")
                                     .background(
                                         if (isNoteMode) appColors.primarySoft
                                         else MaterialTheme.colorScheme.surfaceVariant,

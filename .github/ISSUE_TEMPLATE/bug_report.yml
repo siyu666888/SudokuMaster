@@ -1,0 +1,147 @@
+name: 🐛 Bug 报告
+description: 应用崩溃、显示异常、功能不符合预期——请用这个表单
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！提交前请先做两件小事，能省掉一轮来回沟通：
+
+        1. 在 [Issues](https://github.com/siyu666888/SudokuMaster/issues?q=is%3Aissue) 里搜一下关键词，可能已经有人报过。
+        2. 如果是「怎么用」「能不能加某个功能」这类问题，更适合发到 [Discussions](https://github.com/siyu666888/SudokuMaster/discussions)。
+
+        > 本项目纯单机离线运行，不申请网络权限，所以**不需要**你提供账号、隐私数据或截图里的个人信息。
+
+  - type: input
+    id: app-version
+    attributes:
+      label: 应用版本
+      description: 在「设置 → 关于」中可以看到。
+      placeholder: 例如 1.9.3（versionCode 19）
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-type
+    attributes:
+      label: 安装方式
+      description: |
+        这一项很关键。数据迁移只在**升级安装**时发生，很多问题（例如启动闪退）
+        只在升级路径上出现，全新安装完全正常。
+      options:
+        - 全新安装（先卸载或首次安装）
+        - 从旧版本升级安装（直接覆盖安装）
+        - 不确定
+    validations:
+      required: true
+
+  - type: input
+    id: previous-version
+    attributes:
+      label: 升级前的版本（如为升级安装）
+      description: 记不清可以填「不确定」。跨大版本升级（如 v1.8.x → v1.9.x）请务必注明。
+      placeholder: 例如 1.9.0
+    validations:
+      required: false
+
+  - type: input
+    id: device
+    attributes:
+      label: 设备型号与 Android 版本
+      description: 在「系统设置 → 关于手机」中可以看到。模拟器请写清 AVD 名称与系统镜像版本。
+      placeholder: 例如 小米 13 / Android 14（API 34）
+    validations:
+      required: true
+
+  - type: dropdown
+    id: board-size
+    attributes:
+      label: 涉及的棋盘尺寸
+      description: 与棋盘无关的问题（如设置页、成就页）选「与棋盘无关」。
+      options:
+        - 四宫格 4×4
+        - 六宫格 6×6
+        - 九宫格 9×9
+        - 多个尺寸都有
+        - 与棋盘无关
+    validations:
+      required: true
+
+  - type: dropdown
+    id: difficulty
+    attributes:
+      label: 涉及的难度
+      options:
+        - 简单
+        - 普通
+        - 困难
+        - 专家
+        - 地狱
+        - 多个难度都有
+        - 与难度无关
+    validations:
+      required: false
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 请写得能让别人照着点出来。越具体越好。
+      placeholder: |
+        1. 打开应用，进入首页
+        2. 选择「九宫格 · 困难」，点击开始
+        3. 长按某格进入笔记模式
+        4. 此时点击「提示」按钮
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-actual
+    attributes:
+      label: 预期结果 vs 实际结果
+      description: 分别说明「你觉得应该怎样」和「实际发生了什么」。闪退请写明闪退发生在哪一步。
+      placeholder: |
+        预期：提示次数减 1，并填入一个数字。
+        实际：界面卡住，约 1 秒后闪退回桌面。
+    validations:
+      required: true
+
+  - type: dropdown
+    id: reproducibility
+    attributes:
+      label: 是否必现
+      options:
+        - 每次都能复现
+        - 偶尔出现（约一半概率）
+        - 只出现过一次
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志（可选，但崩溃类问题强烈建议附上）
+      description: |
+        用数据线连电脑，在终端执行下面命令，然后把输出里含 `sudokumaster` 或
+        `AndroidRuntime` 的段落贴进来（会自动渲染成代码块）：
+
+        ```
+        adb logcat -d | grep -iE "sudokumaster|AndroidRuntime|FATAL"
+        ```
+
+        如果是启动即闪退，可以先 `adb logcat -c` 清空，再打开应用复现，然后执行上面的命令。
+        不方便抓日志也没关系，直接提交，我会按步骤跟进。
+      render: text
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已在 Issues 中搜索过，没有找到相同问题
+          required: true
+        - label: 我使用的是 README 中提供的正式版 APK 或自行构建的 release 包（非来源不明的第三方渠道包）
+          required: false

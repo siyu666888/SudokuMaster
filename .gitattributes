@@ -1,0 +1,11 @@
+# 统一换行：脚本必须保持 LF（CRLF 会让 bash 报 $'\r': command not found）
+*.sh   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+
+# 图片按二进制处理，避免 Git 尝试做文本转换
+*.png  binary
+*.gif  binary
+*.jpg  binary
+*.webp binary
+*.apk  binary
