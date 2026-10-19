@@ -11,12 +11,12 @@ Compose 完整重写，数据层用 Room + DataStore 落地。
 
 已在本机用 `gradle assembleRelease` 产出可直接安装的正式版：
 
-- 产物：`release/SudokuMaster-1.9.1-release.apk`（约 2.7 MB，R8 混淆 + 资源压缩 + release 签名）
+- 产物：`release/SudokuMaster-1.9.2-release.apk`（约 2.7 MB，R8 混淆 + 资源压缩 + release 签名）
 - 签名：自签名 release 密钥 `keystore/sudoku-release.jks`（PKCS12，RSA 2048，
   有效期 10000 天，`CN=SudokuMaster`）；`apksigner verify` 通过（v2 scheme）。
   - 密钥口令存放于 `keystore.properties`（已被 `.gitignore` 忽略，**切勿入库/外泄**）。
   - 若日后要上架应用商店，请在 Play Console 用同一密钥或改用 Play App Signing。
-- 包信息：`com.example.sudokumaster` · versionCode 17 · versionName 1.9.1 · minSdk 24 / targetSdk 34。
+- 包信息：`com.example.sudokumaster` · versionCode 18 · versionName 1.9.2 · minSdk 24 / targetSdk 34。
 - 启动图标：使用紫蓝渐变 3D「数独 + 手柄」插图，经中心裁剪后生成
   `mipmap-{m,h,x,xx,xxx}hdpi` 的 `ic_launcher.png` / `ic_launcher_round.png`（源图 1536×1536）。
 - 权限：`VIBRATE`（震动反馈，设置内可关）+ AndroidX 自动注入的
@@ -27,8 +27,8 @@ Compose 完整重写，数据层用 Room + DataStore 落地。
 
 ```bash
 # 需 JDK 17 + Android SDK(platform 34 / build-tools 34.0.0)，并设置 ANDROID_HOME
-gradle assembleRelease        # 产出 app/build/outputs/apk/release/SudokuMaster-1.9.1-release.apk
-apksigner verify --print-certs release/SudokuMaster-1.9.1-release.apk
+gradle assembleRelease        # 产出 app/build/outputs/apk/release/SudokuMaster-1.9.2-release.apk
+apksigner verify --print-certs release/SudokuMaster-1.9.2-release.apk
 ```
 
 ## 技术栈与版本
@@ -190,6 +190,21 @@ ui/fx/
   其所在行/列/宫同伴格笔记中的该候选（幂等、O(n²)，n≤9 无感）。原有的「错误标记/警告」开关保留。
 - **底部图标改为彩色**：首页(绿) / 历史(橙) / 成就(紫) / 设置(蓝) 各用专属彩色；选中态用
   填充图标 + 专属色，未选中用淡彩色描边图标（覆盖 v1.1.0 的纯主题色绑定，按用户最新要求）。
+
+## v1.9.2 更新（首页 / 历史卡片扁平化推广）
+
+- **按用户确认，把 v1.8.0 成就墙同款扁平化推广到首页与历史页**：
+  - 首页「继续游戏」卡片、难度卡片：去掉 `lifted` 阴影 + 发丝描边，
+    层次改由「surfaceVariant 底色 + 左侧 5dp 难度色条 + 图标 + 文案」表达。
+  - 首页尺寸选择框：去掉选中态的 3dp 主色描边与阴影。因 `surfaceVariant` 与
+    `primaryContainer` 色相相近，选中态改由「实底 primaryContainer vs 淡底
+    surfaceVariant(45%)」+ 放大 1.07 + 加粗主色文字 + 迷你棋盘线色加强共同表达，
+    扁平后依然清晰可辨。
+  - 历史记录卡片：去掉阴影 + 发丝描边，保留左侧难度色条与星级/分数信息。
+- **未随扁平化的部分**：`ModuleCard`（设置页 / 成就页模块卡）与成就页顶部汇总卡
+  仍保留浅阴影——它们承载密集的设置项与统计数据，需要与页面底色拉开层次。
+- 纯视觉维护性更新，无交互与功能变化；单元测试 27 个全部通过。
+- 版本：versionCode 18 · versionName 1.9.2。
 
 ## v1.9.1 更新（D4 弃用 API 清理）
 

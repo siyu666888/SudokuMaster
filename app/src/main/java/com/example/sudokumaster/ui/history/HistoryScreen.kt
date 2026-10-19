@@ -59,7 +59,6 @@ import com.example.sudokumaster.domain.model.BoardDefinitions
 import com.example.sudokumaster.domain.model.SizeId
 import com.example.sudokumaster.ui.components.EmptyState
 import com.example.sudokumaster.ui.components.SearchEmptyIllustration
-import com.example.sudokumaster.ui.components.lifted
 import com.example.sudokumaster.util.difficultyColor
 import com.example.sudokumaster.util.difficultyIcon
 import com.example.sudokumaster.util.fmtTime
@@ -317,10 +316,10 @@ private fun HistoryRecordCard(
     val dateStr = SimpleDateFormat("M/d HH:mm", Locale.getDefault()).format(Date(rec.date))
     val color = difficultyColor(rec.sizeId, rec.diffId)
     val hasScore = rec.score > 0
+    // v1.9.1：扁平化——去掉阴影/发丝描边，卡片层次由「surfaceVariant 底色 + 左侧难度色条」表达
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .lifted(2.dp, RoundedCornerShape(12.dp))
             .clickable { onReplay(rec.id) },
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceVariant

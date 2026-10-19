@@ -3,7 +3,6 @@ package com.example.sudokumaster.ui.home
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,7 +41,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -55,7 +53,6 @@ import com.example.sudokumaster.SudokuApplication
 import com.example.sudokumaster.domain.model.BoardDefinitions
 import com.example.sudokumaster.domain.model.SizeId
 import com.example.sudokumaster.domain.model.StatsTuple
-import com.example.sudokumaster.ui.components.lifted
 import com.example.sudokumaster.util.colorHex
 import com.example.sudokumaster.util.difficultyIcon
 import com.example.sudokumaster.util.fmtTime
@@ -100,14 +97,14 @@ fun HomeScreen(
                 .padding(16.dp)
         ) {
             // 续玩卡片：点击恢复「最近保存」的那一盘（指定 slotId）
+            // v1.9.1：扁平化——去掉阴影/发丝描边，状态由底色（primaryContainer / surfaceVariant）表达
             val canContinue = savedGame != null && savedGame?.isWon == false
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .then(
                         if (canContinue) Modifier.clickable { onResume(savedGame!!.slotId) } else Modifier
-                    )
-                    .lifted(2.dp, RoundedCornerShape(16.dp)),
+                    ),
                 colors = CardDefaults.cardColors(
                     containerColor = if (canContinue) MaterialTheme.colorScheme.primaryContainer
                     else MaterialTheme.colorScheme.surfaceVariant
@@ -227,14 +224,15 @@ private fun SizeBox(
 ) {
     val colors = MaterialTheme.colorScheme
     val scale by animateFloatAsState(if (selected) 1.07f else 1f, label = "sizebox-scale")
+    // v1.9.1：扁平化——去掉阴影与描边。因 surfaceVariant 与 primaryContainer 色相近，
+    // 选中态改用「实底 primaryContainer vs 淡底 surfaceVariant(45%)」+ 放大 + 加粗主色文字表达。
     Surface(
         modifier = modifier
-            .shadowOrBorder(selected)
             .scale(scale)
             .aspectRatio(0.85f)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
-        color = if (selected) colors.primaryContainer else colors.surfaceVariant
+        color = if (selected) colors.primaryContainer else colors.surfaceVariant.copy(alpha = 0.45f)
     ) {
         Column(
             modifier = Modifier
@@ -258,18 +256,6 @@ private fun SizeBox(
             )
         }
     }
-}
-
-/**
- * 选中态用 3dp 主色描边 + 极浅阴影突出；未选中用淡描边，保持卡片层次。
- */
-@Composable
-private fun Modifier.shadowOrBorder(selected: Boolean): Modifier = if (selected) {
-    this
-        .shadow(4.dp, RoundedCornerShape(12.dp))
-        .border(2.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp))
-} else {
-    this.border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.35f), RoundedCornerShape(12.dp))
 }
 
 /** 用 Canvas 画一个迷你棋盘预览（n×n 网格 + 宫加粗线）。 */
@@ -305,7 +291,6 @@ private fun DifficultyCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .lifted(2.dp, RoundedCornerShape(12.dp))
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceVariant
