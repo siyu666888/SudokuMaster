@@ -7,6 +7,17 @@ Compose 完整重写，数据层用 Room + DataStore 落地。
 - 纯单机、离线运行，不请求网络权限，不收集 / 不上传任何数据。
 - 支持 **四宫格 4×4 / 六宫格 6×6 / 九宫格 9×9** 三种棋盘。
 
+## 开源许可与贡献
+
+- **许可协议：GNU General Public License v3.0（GPL-3.0）**，详见 [LICENSE](LICENSE)。
+  你可以自由使用、研究、修改与再分发本项目；**任何衍生作品必须以同一协议开源**，
+  且不得并入专有软件。第三方依赖（AndroidX / Compose / Room / Kotlin 标准库等）均为
+  Apache-2.0，与 GPL-3.0 兼容。
+- **欢迎贡献**：请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)（中英双语），
+  其中包含环境要求、构建测试命令、代码结构导读、工程红线与 PR 流程。
+  高优先级方向：**界面文案国际化（i18n）**、无障碍、单元测试补充。
+- 仓库内 `.github/` 暂未配置 issue / PR 模板，直接描述即可。
+
 ## 正式版 APK（已构建并签名）
 
 已在本机用 `gradle assembleRelease` 产出可直接安装的正式版：
@@ -47,10 +58,10 @@ apksigner verify --print-certs release/SudokuMaster-1.9.2-release.apk
 ## 如何构建 / 运行
 
 1. 用 **Android Studio**（Ladybug 或更新）打开本目录（`SudokuMaster/`）。
-2. 等待 Gradle Sync；首次会下载 Gradle 8.9 与依赖。
+2. 等待 Gradle Sync；首次会下载 Gradle 8.7 与依赖。
    - 仓库内未附带 `gradlew` 可执行文件与 `gradle-wrapper.jar`（二进制）。
      在 Android Studio 中打开后，IDE 会自动补齐 wrapper；也可命令行执行
-     `gradle wrapper --gradle-version 8.9` 生成。
+     `gradle wrapper --gradle-version 8.7` 生成。
 3. 连接设备或模拟器，Run `app`。
 
 命令行（若已生成 wrapper）：
@@ -59,6 +70,9 @@ apksigner verify --print-certs release/SudokuMaster-1.9.2-release.apk
 ./gradlew assembleDebug        # 产出 app/build/outputs/apk/debug/app-debug.apk
 ./gradlew installDebug         # 安装到已连接设备
 ```
+
+> 贡献者请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)：其中列明了 JDK 17 / SDK 34 /
+> Gradle 8.7 等环境要求、测试命令与工程约定。
 
 ## 工程结构
 
