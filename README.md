@@ -38,6 +38,9 @@ Compose 完整重写，数据层用 Room + DataStore 落地。
 - **欢迎贡献**：请先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)（中英双语），
   其中包含环境要求、构建测试命令、代码结构导读、工程红线与 PR 流程。
   高优先级方向：**界面文案国际化（i18n）**、无障碍、单元测试补充。
+- **路线图**：[docs/ROADMAP.md](docs/ROADMAP.md) 盘点了当前技术栈、已完成的
+  核心能力、10 项主要限制，并按优先级给出改进方案（每项标注预期收益与实施成本）。
+  想认领任务的话，从这里挑性价比最高的入手最快。
 - **提问与讨论**：使用疑问、设计思路、功能想法投票请走
   [GitHub Discussions](https://github.com/siyu666888/SudokuMaster/discussions)
   （分为 Q&A / Ideas / General / Show and tell 等分类），不占用 Issue。
