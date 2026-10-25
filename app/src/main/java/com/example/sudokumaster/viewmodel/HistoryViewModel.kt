@@ -37,10 +37,23 @@ class HistoryViewModel(private val container: AppContainer) : ViewModel() {
     private val _diffFilter = MutableStateFlow<Int?>(null)
     val diffFilter: StateFlow<Int?> = _diffFilter.asStateFlow()
 
-    private val allRecords = statsRepo.recentRecords(200)
+    /**
+     * 展示用全量列表（按时间倒序）。
+     *
+     * ⚠️ 早期版本这里是 `statsRepo.recentRecords(200)`，而 `totalCount` 又由
+     * `allRecords.map { it.size }` 得出 —— 记录数一过 200，**列表只剩最新 200 条、
+     * 「总局数」恒显示 200、且搜索只能命中这 200 条**，界面无任何提示。
+     * 现在列表走全表（配合 LazyColumn 只渲染可见项），条数改由 SQL `COUNT(*)` 单独回答。
+     */
+    private val allRecords = statsRepo.allRecords()
 
-    /** 未筛选时的总局数（决定「从未完成」与「无匹配」两种空状态）。 */
-    val totalCount: StateFlow<Int> = allRecords.map { it.size }
+    /**
+     * 未筛选时的总局数（决定「从未完成」与「无匹配」两种空状态）。
+     *
+     * 必须走 [StatsRepository.totalCount]（SQL COUNT），**不能**用列表 size 推导，
+     * 否则任何对列表的限流都会顺手把这个数字一起限掉。
+     */
+    val totalCount: StateFlow<Int> = statsRepo.totalCount()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     /** 经搜索 + 尺寸 + 难度过滤后的展示列表。 */

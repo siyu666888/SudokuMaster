@@ -115,7 +115,8 @@ fun GameScreen(
     }
 
     // 前后台暂停 / 恢复
-    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { vm.pause(); vm.saveCurrent(); celebration.stop() }
+    // ⚠️ 切后台必须**立即**落盘：去抖窗口内进程可能已被系统回收，那几步棋就丢了
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { vm.pause(); vm.saveCurrentNow(); celebration.stop() }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.resumeTimer() }
 
     // Toast 自动消失

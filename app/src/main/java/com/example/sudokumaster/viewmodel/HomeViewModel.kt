@@ -32,10 +32,17 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
     val settings: StateFlow<AppSettings> = settingsRepo.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppSettings())
 
-    val statsMap: StateFlow<Map<String, StatsTuple>> = statsRepo.allRecords()
-        .map { list ->
-            list.groupBy { "${it.sizeId}:${it.diffId}" }
-                .mapValues { (_, v) -> StatsTuple(v.size, v.minOf { r -> r.timeMs }) }
+    /**
+     * 各 (尺寸:难度) 的「通关数 + 最快用时」，由 SQL `GROUP BY` 一次算完。
+     *
+     * 早期实现是 `statsRepo.allRecords()` 全表拉回再 Kotlin 侧 groupBy —— 记录一多，
+     * 每次表格变动都要重算整张表。现在只搬回 10 行以内的聚合结果。
+     */
+    val statsMap: StateFlow<Map<String, StatsTuple>> = statsRepo.groupStats()
+        .map { rows ->
+            rows.associate { r ->
+                "${r.sizeId}:${r.diffId}" to StatsTuple(r.cnt, r.bestMs)
+            }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 

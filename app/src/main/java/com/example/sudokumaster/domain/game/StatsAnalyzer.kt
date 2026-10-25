@@ -1,7 +1,7 @@
 package com.example.sudokumaster.domain.game
 
 import com.example.sudokumaster.domain.model.WinRecord
-import java.util.Calendar
+import java.util.TimeZone
 
 /**
  * 成绩统计分析（纯 Kotlin，无 Android 依赖，可单测）。
@@ -41,14 +41,14 @@ object StatsAnalyzer {
      */
     fun overview(records: List<WinRecord>, nowMs: Long = System.currentTimeMillis()): Overview {
         if (records.isEmpty()) return Overview()
-        val days = records.map { dayNumber(it.date) }.distinct().sorted()
+        val ds = dayStats(records.map { dayNumber(it.date) }, nowMs)
         return Overview(
             total = records.size,
             avgTimeMs = records.map { it.timeMs }.average().toLong(),
             bestTimeMs = records.minOfOrNull { it.timeMs },
-            currentStreakDays = currentStreak(days, dayNumber(nowMs)),
-            longestStreakDays = longestStreak(days),
-            activeDays = days.size
+            currentStreakDays = ds.currentStreakDays,
+            longestStreakDays = ds.longestStreakDays,
+            activeDays = ds.activeDays
         )
     }
 
@@ -70,19 +70,47 @@ object StatsAnalyzer {
                     .thenBy { it.diffId }
             )
 
+    /** 只与「自然日」相关的统计：当前 / 最长连续天数、活跃天数。 */
+    data class DayStats(
+        val currentStreakDays: Int = 0,
+        val longestStreakDays: Int = 0,
+        val activeDays: Int = 0
+    )
+
     /**
-     * 本地时区「第几天」序号（UTC 日起始，毫秒/86400000）。
-     * 相差 1 即相邻自然日，用于连续天数判断。
+     * 由「出现过的本地自然日序号」推导连续 / 活跃统计。
+     *
+     * 数据来源已下推 SQL（`GameRecordDao.distinctDays()`，与 [dayNumber] 同口径），
+     * 这里只保留纯函数推导逻辑，因此仍可脱离数据库单测。
+     *
+     * @param days 升序或无序均可，内部会去重排序
+     * @param nowMs 「今天」的参考时间（测试可注入）
      */
-    fun dayNumber(dateMs: Long): Long {
-        val cal = Calendar.getInstance()
-        cal.timeInMillis = dateMs
-        cal.set(Calendar.HOUR_OF_DAY, 0)
-        cal.set(Calendar.MINUTE, 0)
-        cal.set(Calendar.SECOND, 0)
-        cal.set(Calendar.MILLISECOND, 0)
-        return cal.timeInMillis / 86_400_000L
+    fun dayStats(days: List<Long>, nowMs: Long = System.currentTimeMillis()): DayStats {
+        val sorted = days.distinct().sorted()
+        if (sorted.isEmpty()) return DayStats()
+        return DayStats(
+            currentStreakDays = currentStreak(sorted, dayNumber(nowMs)),
+            longestStreakDays = longestStreak(sorted),
+            activeDays = sorted.size
+        )
     }
+
+    /**
+     * 本地时区「第几天」序号：从 1970-01-01 数起的**本地日序号**。
+     *
+     * 口径 = `(时刻 + 当地时区偏移) / 86400000`。
+     *
+     * ⚠️ 这个式子必须与 `GameRecordDao.distinctDays()` 的 SQL **逐值一致**：
+     * SQLite 的 `%s` 恒为 UTC 口径，`strftime(..., 'unixepoch', 'localtime', 'start of day')`
+     * 拿到的是「本地日期的零点按 UTC 解释」，即本地零点 + 时区偏移，整除后正好等于上式。
+     * （曾经这里写成「本地零点毫秒 / 86400000」，对 UTC+8 会整体小 1，与 SQL 对不上，
+     * 导致连续天数在两条路径下算出不同结果。）
+     *
+     * 连续天数只依赖「相邻日相差 1」，绝对数值无所谓；但**两条路径的数值必须相同**。
+     */
+    fun dayNumber(dateMs: Long): Long =
+        (dateMs + TimeZone.getDefault().getOffset(dateMs)) / 86_400_000L
 
     /** 最长连续：升序去重日列表中最长的相邻日串。 */
     private fun longestStreak(days: List<Long>): Int {

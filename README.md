@@ -53,12 +53,12 @@ Compose 完整重写，数据层用 Room + DataStore 落地。
 
 已在本机用 `gradle assembleRelease` 产出可直接安装的正式版：
 
-- 产物：`release/SudokuMaster-1.9.3-release.apk`（约 2.7 MB，R8 混淆 + 资源压缩 + release 签名）
+- 产物：`release/SudokuMaster-1.10.0-release.apk`（约 2.7 MB，R8 混淆 + 资源压缩 + release 签名）
 - 签名：自签名 release 密钥 `keystore/sudoku-release.jks`（PKCS12，RSA 2048，
   有效期 10000 天，`CN=SudokuMaster`）；`apksigner verify` 通过（v2 scheme）。
   - 密钥口令存放于 `keystore.properties`（已被 `.gitignore` 忽略，**切勿入库/外泄**）。
   - 若日后要上架应用商店，请在 Play Console 用同一密钥或改用 Play App Signing。
-- 包信息：`com.example.sudokumaster` · versionCode 19 · versionName 1.9.3 · minSdk 24 / targetSdk 34。
+- 包信息：`com.example.sudokumaster` · versionCode 20 · versionName 1.10.0 · minSdk 24 / targetSdk 34。
 - 启动图标：使用紫蓝渐变 3D「数独 + 手柄」插图，经中心裁剪后生成
   `mipmap-{m,h,x,xx,xxx}hdpi` 的 `ic_launcher.png` / `ic_launcher_round.png`（源图 1536×1536）。
 - 权限：`VIBRATE`（震动反馈，设置内可关）+ AndroidX 自动注入的
@@ -69,9 +69,12 @@ Compose 完整重写，数据层用 Room + DataStore 落地。
 
 ```bash
 # 需 JDK 17 + Android SDK(platform 34 / build-tools 34.0.0)，并设置 ANDROID_HOME
-gradle assembleRelease        # 产出 app/build/outputs/apk/release/SudokuMaster-1.9.3-release.apk
-apksigner verify --print-certs release/SudokuMaster-1.9.3-release.apk
+./gradlew assembleRelease    # 产出 app/build/outputs/apk/release/SudokuMaster-1.10.0-release.apk
+apksigner verify --print-certs release/SudokuMaster-1.10.0-release.apk
 ```
+
+> 仓库已内置 Gradle Wrapper（`gradlew` + `gradle/wrapper/gradle-wrapper.jar`），
+> 不再需要本机自备 Gradle；`./gradlew` 会自动下载并使用 Gradle 8.7。
 
 ## 技术栈与版本
 
@@ -235,6 +238,42 @@ ui/fx/
   其所在行/列/宫同伴格笔记中的该候选（幂等、O(n²)，n≤9 无感）。原有的「错误标记/警告」开关保留。
 - **底部图标改为彩色**：首页(绿) / 历史(橙) / 成就(紫) / 设置(蓝) 各用专属彩色；选中态用
   填充图标 + 专属色，未选中用淡彩色描边图标（覆盖 v1.1.0 的纯主题色绑定，按用户最新要求）。
+
+## v1.10.0 更新（历史记录截断修复 + 工程化）
+
+本版没有新增功能，集中处理 **1 个数据缺陷** 与 **4 项工程欠账**，全部对应
+`docs/ROADMAP.md` 的 P0 项。
+
+- **修复历史记录被静默截断（数据缺陷）**：`HistoryViewModel` 用
+  `recentRecords(200)`（SQL `LIMIT 200`）当数据源，又用 `allRecords.map { it.size }`
+  当总局数。记录数一过 200：列表只剩最新 200 条、「共 N 局」恒显示 200、
+  且搜索只能在最近 200 条里命中，界面无任何提示。现改为列表走全表
+  （页面本来就是 `LazyColumn`，只渲染可见项），条数改由 SQL `COUNT(*)` 单独回答。
+  新增 `HistoryViewModelTest`（4 个用例）用 250 条真实数据回归。
+- **补齐 Gradle Wrapper**：此前仓库只跟踪了 `gradle-wrapper.properties`，
+  `gradlew` / `gradlew.bat` / `gradle-wrapper.jar` 都不在库里，外部贡献者必须自备
+  Gradle 8.7。现三件套全部入库，`.gitattributes` 额外把 `gradlew` 钉死为 LF
+  （Windows 的 `core.autocrlf=true` 会把它转成 CRLF，导致 Linux 上无法执行）。
+- **新增 GitHub Actions CI**（`.github/workflows/ci.yml`）：push / PR 触发
+  `testDebugUnitTest` + `assembleDebug`，带 Gradle 缓存与 JDK 17。
+  不跑 `assembleRelease`——release 需要不入库的 `keystore.properties`。
+- **存档写库去抖**：`saveCurrent()` 原先在填数 / 擦除 / 提示 / 重置等路径上
+  **每次**都全量 upsert 整条快照，并触发 `saved_game` 上两个 Flow 重放。
+  现改为 500 ms 去抖，只写最后一次；同时新增 `saveCurrentNow()`，
+  由切后台（`ON_PAUSE`）、暂停、退出到首页、通关等**不能丢进度**的时机强制落盘。
+- **统计聚合下推 SQL**：首页 `statsMap` 与成就页原先把 `game_records` 整表读进内存
+  再 Kotlin 侧 `groupBy` / `minOf` / `average`。现改为 DAO 的
+  `COUNT(*)` / `AVG` / `MIN` / `MAX` / `GROUP BY sizeId,diffId` 与
+  `DISTINCT` 本地自然日查询，只搬回 10 行以内的聚合结果。
+  `StatsAnalyzer` 作为纯函数保留，仍可脱离数据库单测。
+- **时区口径对齐（顺带修出的一致性问题）**：`StatsAnalyzer.dayNumber` 原为
+  「本地零点毫秒 / 86400000」，对 UTC+8 整体比「本地日序号」小 1；
+  而下推的 SQL 走的是另一套口径。两者只要求相对差为 1 即可算对连续天数，
+  但**数值必须相同**，否则内存统计与 SQL 统计会互相矛盾。现统一为
+  `(时刻 + 时区偏移) / 86400000`，并有 `GameRecordDaoTest` 逐值比对守护。
+- 版本：versionCode 20 · versionName 1.10.0。单元测试 37 → **47** 个，全部通过；
+  `assembleDebug` / `assembleRelease` 均成功，`apksigner verify` 通过（v2 scheme），
+  编译零告警。
 
 ## v1.9.3 更新（修复跨版本升级闪退）
 

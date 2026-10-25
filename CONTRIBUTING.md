@@ -43,7 +43,7 @@
 | **无障碍** | 补 `contentDescription`、焦点顺序、TalkBack 适配 |
 | **新棋盘 / 新难度** | `domain/model/BoardModels.kt` 中增加尺寸与难度（注意 `SudokuEngine` 与存档兼容） |
 | **题库扩展** | 改进「导入题目 JSON」的解析与校验（`SettingsViewModel.parsePuzzleImport`） |
-| **单元测试** | `app/src/test` 目前 37 个用例（含 6 个界面渲染用例），domain 层尤其欢迎补充边界测试 |
+| **单元测试** | `app/src/test` 目前 47 个用例（含 10 个界面渲染与 Robolectric 数据层用例），domain 层尤其欢迎补充边界测试 |
 | **Bug 修复** | 见 [Issues](https://github.com/siyu666888/SudokuMaster/issues) |
 
 > 想先聊再动手？在 [Discussions · Ideas](https://github.com/siyu666888/SudokuMaster/discussions/categories/ideas)
@@ -58,9 +58,12 @@
 | Gradle | **8.7**（见 `gradle/wrapper/gradle-wrapper.properties`） |
 | minSdk / targetSdk | 24 / 34 |
 
-> ⚠️ **仓库未包含 `gradlew` 与 `gradle-wrapper.jar`**（二进制文件未入库）。
-> 因此请使用本机已安装的 Gradle 8.7 直接执行命令，或用 Android Studio（Ladybug 或更新）
-> 打开本目录，让 IDE 自动补齐 wrapper。
+> ✅ **仓库已内置 Gradle Wrapper**（`gradlew` / `gradlew.bat` / `gradle/wrapper/gradle-wrapper.jar`
+> 均已入库）。直接 `./gradlew <task>` 即可，它会自动下载并使用 Gradle 8.7，
+> **不需要**本机自备 Gradle。Windows 用户请用 `gradlew.bat`。
+>
+> ⚠️ `gradlew` 在 `.gitattributes` 中被钉死为 LF。如果你在 Windows 上改过它，
+> 请确认没有引入 CRLF，否则 Linux / CI 上会报 `bad interpreter`。
 
 设置 `ANDROID_HOME` 指向你的 SDK 位置，例如：
 
@@ -74,22 +77,22 @@ export ANDROID_HOME=~/Android/Sdk        # macOS / Linux
 ```bash
 # 跑全部单测（JUnit 4）。纯 domain 用例约 1 分钟；
 # 含 Robolectric 渲染用例时整体约 4~5 分钟（首次需下载 android-all）
-gradle testDebugUnitTest
+./gradlew testDebugUnitTest
 
 # 打 debug 包并安装到已连接设备
-gradle assembleDebug
-gradle installDebug
+./gradlew assembleDebug
+./gradlew installDebug
 
 # release 包（需要签名配置，见下）
-gradle assembleRelease
+./gradlew assembleRelease
 ```
 
 **关于 release 签名**：正式签名用的 `keystore/sudoku-release.jks` 与 `keystore.properties`
 已被 `.gitignore` 排除，**不在仓库内**。贡献者无需配置，用 `assembleDebug` 即可验证；
 release 包由维护者在本地构建后放入 `release/` 目录（`release/*.apk` 同样不入库）。
 
-**提交前请至少跑通 `gradle testDebugUnitTest`**；改了 UI 的话建议再跑一次
-`gradle assembleDebug` 确认能编译。本项目目前的验收标准是
+**提交前请至少跑通 `./gradlew testDebugUnitTest`**；改了 UI 的话建议再跑一次
+`./gradlew assembleDebug` 确认能编译。本项目目前的验收标准是
 「测试全绿 + release 包构建成功 + `apksigner verify` 通过」。
 
 **README 配图怎么更新**：界面截图与演示动图由 Robolectric 在 JVM 上渲染真实
@@ -162,13 +165,13 @@ app/src/main/java/com/example/sudokumaster/
 
 - 主题行用中文，`：` 后接摘要，控制在 50 字左右。
 - 正文用 `-` 列表说明改了什么、为什么。
-- 有验证结论就写上（如「37 个单测全绿 + assembleRelease 成功」）。
+- 有验证结论就写上（如「47 个单测全绿 + assembleRelease 成功」）。
 - 一个 commit 做一件事；不要把无关改动混在一起。
 
 ## Pull Request 流程
 
 1. Fork 本仓库，从 `main` 切分支：`feature/xxx`、`fix/xxx`、`docs/xxx`。
-2. 按上面的约定改代码，本地跑通 `gradle testDebugUnitTest`（改 UI 再加 `assembleDebug`）。
+2. 按上面的约定改代码，本地跑通 `./gradlew testDebugUnitTest`（改 UI 再加 `assembleDebug`）。
 3. 提交并推送到你的 Fork，然后向 `siyu666888/SudokuMaster` 的 `main` 开 PR。
 4. PR 描述请写清：
    - 做了什么、解决什么问题（有关联 issue 请带上 `Closes #123`）；
@@ -242,7 +245,7 @@ You do not need to start with a big refactor. All of these are genuinely useful:
 | **Accessibility** | Fill in `contentDescription`, focus order, TalkBack support |
 | **New board sizes / difficulties** | Add entries in `domain/model/BoardModels.kt` (mind `SudokuEngine` limits and save compatibility) |
 | **Puzzle bank** | Improve the puzzle-JSON import parser and validation (`SettingsViewModel.parsePuzzleImport`) |
-| **Unit tests** | 37 cases live in `app/src/test`; the `domain` layer especially welcomes edge-case coverage |
+| **Unit tests** | 47 cases live in `app/src/test`; the `domain` layer especially welcomes edge-case coverage |
 | **Bug fixes** | See [Issues](https://github.com/siyu666888/SudokuMaster/issues) |
 
 > Want to talk before coding? Post in
@@ -258,9 +261,12 @@ You do not need to start with a big refactor. All of these are genuinely useful:
 | Gradle | **8.7** (see `gradle/wrapper/gradle-wrapper.properties`) |
 | minSdk / targetSdk | 24 / 34 |
 
-> ⚠️ **The repository does not include `gradlew` or `gradle-wrapper.jar`** (binary files are
-> not tracked). Use a locally installed Gradle 8.7, or open the project in Android Studio
-> (Ladybug or newer) and let the IDE generate the wrapper for you.
+> ✅ **Gradle Wrapper is tracked** (`gradlew` / `gradlew.bat` / `gradle/wrapper/gradle-wrapper.jar`
+> are all in the repo). Just run `./gradlew <task>` — it downloads and uses Gradle 8.7
+> automatically, so you do **not** need a local Gradle install. On Windows use `gradlew.bat`.
+>
+> ⚠️ `gradlew` is pinned to LF in `.gitattributes`. If you edit it on Windows, make sure
+> you did not introduce CRLF, or Linux / CI will fail with `bad interpreter`.
 
 Point `ANDROID_HOME` at your SDK, e.g.:
 
@@ -274,14 +280,14 @@ export ANDROID_HOME=~/Android/Sdk        # macOS / Linux
 ```bash
 # Run all unit tests (JUnit 4). Domain-only cases take ~1 minute;
 # with the Robolectric render tests the whole run is ~4-5 min (first run downloads android-all)
-gradle testDebugUnitTest
+./gradlew testDebugUnitTest
 
 # Build and install the debug APK on a connected device
-gradle assembleDebug
-gradle installDebug
+./gradlew assembleDebug
+./gradlew installDebug
 
 # Release build (needs signing config, see below)
-gradle assembleRelease
+./gradlew assembleRelease
 ```
 
 **About release signing**: the release keystore (`keystore/sudoku-release.jks`) and
@@ -289,8 +295,8 @@ gradle assembleRelease
 need them — `assembleDebug` is enough to verify your change. Release APKs are built locally
 by the maintainer and dropped into `release/` (`release/*.apk` is also untracked).
 
-**Before opening a PR, at minimum run `gradle testDebugUnitTest`**; if you touched the UI,
-also run `gradle assembleDebug` to confirm it compiles. The project's acceptance bar is
+**Before opening a PR, at minimum run `./gradlew testDebugUnitTest`**; if you touched the UI,
+also run `./gradlew assembleDebug` to confirm it compiles. The project's acceptance bar is
 "all tests green + release build succeeds + `apksigner verify` passes".
 
 **Regenerating the README images**: the screenshots and the demo GIF are rendered from the
@@ -368,14 +374,14 @@ Verification: <test/build results>
 
 - Topic line in Chinese, summary after `：`, keep it around 50 characters.
 - Body as a `-` list of what changed and why.
-- Include verification results when you have them (e.g. "37 tests green + assembleRelease OK").
+- Include verification results when you have them (e.g. "47 tests green + assembleRelease OK").
 - One commit does one thing; don't mix unrelated changes.
 
 ## Pull request workflow
 
 1. Fork the repo and branch off `main`: `feature/xxx`, `fix/xxx`, `docs/xxx`.
 2. Make your change following the conventions above; locally run
-   `gradle testDebugUnitTest` (plus `assembleDebug` if you touched the UI).
+   `./gradlew testDebugUnitTest` (plus `assembleDebug` if you touched the UI).
 3. Push to your fork and open a PR against `siyu666888/SudokuMaster:main`.
 4. In the PR description, cover:
    - what you did and which problem it solves (link the issue with `Closes #123`);

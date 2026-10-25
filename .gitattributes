@@ -2,6 +2,9 @@
 *.sh   text eol=lf
 *.yml  text eol=lf
 *.yaml text eol=lf
+# gradlew 无扩展名，且 Windows 的 core.autocrlf=true 会把它转成 CRLF，
+# 导致 Linux / CI 上直接报 "bad interpreter"。必须显式钉死 LF。
+gradlew text eol=lf
 
 # 图片按二进制处理，避免 Git 尝试做文本转换
 *.png  binary
@@ -9,3 +12,6 @@
 *.jpg  binary
 *.webp binary
 *.apk  binary
+
+# 二进制：Git 不做任何换行/文本转换
+*.jar binary

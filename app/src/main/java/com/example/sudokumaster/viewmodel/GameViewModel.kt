@@ -18,6 +18,8 @@ import com.example.sudokumaster.domain.model.SizeId
 import com.example.sudokumaster.domain.model.WinInfo
 import com.example.sudokumaster.domain.session.GameSession
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +30,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.max
 import kotlin.math.roundToInt
+
+/** 落盘去抖窗口：连续操作静默该毫秒数后只写最后一次快照。 */
+private const val SAVE_DEBOUNCE_MS = 500L
 
 class GameViewModel(private val container: AppContainer) : ViewModel() {
 
@@ -56,6 +61,9 @@ class GameViewModel(private val container: AppContainer) : ViewModel() {
 
     private var session: GameSession? = null
     private var settings: AppSettings = AppSettings()
+
+    /** 去抖中的落盘任务（见 [saveCurrent]）。 */
+    private var saveJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -228,22 +236,52 @@ class GameViewModel(private val container: AppContainer) : ViewModel() {
         session?.let { s ->
             if (s.paused) s.resume() else s.pause()
             reEmit()
-            saveCurrent()
+            // 暂停是用户主动「先放一放」，立即落盘，不等去抖窗口
+            saveCurrentNow()
         }
     }
 
+    /**
+     * 立即落盘，并取消尚未执行的去抖写入。
+     *
+     * **只用于不能丢进度的时机**：切后台（ON_PAUSE）、退出到首页、通关。这些场景
+     * 如果只走 [saveCurrent] 的去抖，进程可能在下一次定时器触发前就被杀掉。
+     */
+    fun saveCurrentNow() {
+        saveJob?.cancel()
+        saveJob = null
+        viewModelScope.launch { flushSave() }
+    }
+
+    /**
+     * 去抖落盘：把一段连续操作合并成一次写库。
+     *
+     * 早期实现是「每次填数 / 擦除 / 提示都立刻全量 upsert 整条快照」，同时触发
+     * saved_game 上 `observeLatestSaved` / `observeAllSlots` 两个 Flow 重放 ——
+     * 快速连点时写放大明显、输入也更容易卡。
+     *
+     * 这里改为安静 [SAVE_DEBOUNCE_MS] 毫秒后只写**最后一次**快照；
+     * 后到的调用会取消前一个待执行任务，因此永远不会出现「写过期的旧棋盘」。
+     *
+     * ⚠️ 去抖有丢步风险，**绝不能**用在可能丢进度的时机（见 [saveCurrentNow]）。
+     */
     fun saveCurrent() {
-        session?.let { s ->
-            viewModelScope.launch {
-                gameRepo.saveSnapshot(s.toSnapshot(System.currentTimeMillis()))
-            }
+        saveJob?.cancel()
+        saveJob = viewModelScope.launch {
+            delay(SAVE_DEBOUNCE_MS)
+            flushSave()
         }
+    }
+
+    private suspend fun flushSave() {
+        val s = session ?: return
+        gameRepo.saveSnapshot(s.toSnapshot(System.currentTimeMillis()))
     }
 
     fun dismissWin() { _winInfo.value = null }
     fun consumeToast() { _toast.value = null }
 
-    fun exitToHome() { saveCurrent() }
+    fun exitToHome() { saveCurrentNow() }
 
     // ---------------------------------------------------------- 内部
     private fun reEmit() {
@@ -286,6 +324,9 @@ class GameViewModel(private val container: AppContainer) : ViewModel() {
             }
             // 只清除本难度这一槽，其他尺寸/难度的进行中进度保留（F1 多槽）
             gameRepo.clearSlot(s.sizeId.id, s.difficulty.id)
+            // 槽已删掉：取消尚未执行的去抖落盘，避免它把这一盘又写回来
+            saveJob?.cancel()
+            saveJob = null
 
             // 最快用时由 SQL 聚合下推完成（P2），避免把全表读进内存再 minOf
             val best = statsRepo.minTimeMs(s.sizeId.id, s.difficulty.id)
